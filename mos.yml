@@ -26,23 +26,23 @@ libs:
   #- origin: https://github.com/mongoose-os-libs/boards
   #- origin: https://github.com/mongoose-os-libs/js-demo-bundle
   - origin: https://github.com/mongoose-os-libs/core
-  - origin: https://github.com/mongoose-os-libs/ca-bundle
-  - origin: https://github.com/mongoose-os-libs/rpc-service-config
-  - origin: https://github.com/mongoose-os-libs/rpc-service-fs
-  - origin: https://github.com/mongoose-os-libs/rpc-service-i2c
-  - origin: https://github.com/mongoose-os-libs/rpc-uart
+  #- origin: https://github.com/mongoose-os-libs/ca-bundle
+  #- origin: https://github.com/mongoose-os-libs/rpc-service-config
+  #- origin: https://github.com/mongoose-os-libs/rpc-service-fs
+  #- origin: https://github.com/mongoose-os-libs/rpc-service-i2c
+  #- origin: https://github.com/mongoose-os-libs/rpc-uart
   #- origin: https://github.com/mongoose-os-libs/mjs 
   - origin: https://github.com/mongoose-os-libs/wifi
   #- origin: https://github.com/mongoose-os-libs/sntp
   #- origin: https://github.com/mongoose-os-libs/ota-http-server
-  - origin: https://github.com/mongoose-os-libs/rpc-service-ota
-  - origin: https://github.com/mongoose-os-libs/dash
-  - origin: https://github.com/mongoose-os-libs/shadow
-  - origin: https://github.com/mongoose-os-libs/file-logger
-  - origin: https://github.com/mongoose-os-libs/i2c
+  #- origin: https://github.com/mongoose-os-libs/rpc-service-ota
+  #- origin: https://github.com/mongoose-os-libs/dash
+  #- origin: https://github.com/mongoose-os-libs/shadow
+  #- origin: https://github.com/mongoose-os-libs/file-logger
+  #- origin: https://github.com/mongoose-os-libs/i2c
   - origin: https://github.com/mongoose-os-libs/ds3231
   - origin: https://github.com/mongoose-os-libs/mqtt
-  - origin: https://github.com/mongoose-os-libs/rpc-mqtt
+  #- origin: https://github.com/mongoose-os-libs/rpc-mqtt
 
 
 config_schema:
@@ -55,13 +55,13 @@ config_schema:
  - ["app.LED_PIN", "i", 2, {title: "LED"}] 
  - ["app.VALVE_PIN", "i", 19, {title: "VALVE"}] 
  - ["app.pulsos_litro", "f", 1, {title: "Pulsos por litro"}] 
- - ["app.precio_litro", "f", 2048, {title: "Precio unitario litro"}]
+ - ["app.precio_litro", "f", 1, {title: "Precio unitario litro"}]
  - ["app.delta", "i", 2, {title: "Pulsos para iniciar proceso"}]
- - ["app.stop_time", "i", 2, {title: "Segundos de espera para fin de proceso"}]
- - ["app.delta_time", "i", 5, {title: "Milisegundos para checahr cambio"}]
+ - ["app.stop_time", "i", 5, {title: "Segundos de espera para fin de proceso"}]
+ - ["app.delta_time", "i", 25, {title: "Milisegundos para checahr cambio"}]
  - ["wifi.sta.ssid", "Inventoteca_2G"]
  - ["wifi.sta.pass", "science_7425"]
- - ["wifi.sta.enable", true]
+ - ["wifi.sta.enable", false]
  - ["sntp", "o", {title: "SNTP settings"}]
  - ["sntp.enable", "b", false, {title: "Enable SNTP"}]
  - ["sntp.server", "s", "time.google.com", {title: "Server address"}]
@@ -74,17 +74,17 @@ config_schema:
  #- ["file_logger.log_file_max_size", "i", 5000, {title: "Max log file size in bytes"}]
  #- ["file_logger.max_log_files", "i", 10, {title: "Max number of log files"}]
  #- ["file_logger.enable", true]
- - ["dash.enable", true]
+ - ["dash.enable", false]
  - ["dash.token", "LeaoeL0oKfKjFpPwxQUtOw"]
- - ["i2c.enable", "b", true, {title: "Enable I2C"}]
+ - ["i2c.enable", "b", false, {title: "Enable I2C"}]
  - ["i2c.freq", "i", 100000, {title: "I2C Frequency (Hz)"}]
  - ["i2c.sda_gpio", "i", 21, {title: "I2C SDA GPIO Pin"}]
  - ["i2c.scl_gpio", "i", 22, {title: "I2C SCL GPIO Pin"}]
- - ["mqtt.enable", "b", true, {title: "Enable MQTT functionality"}]
- #- ["mqtt.pass", "s", "", {title: "User password"}]
- #- ["mqtt.user", "s", "", {title: "MQTT user name"}]
- - ["mqtt.server", "s", "31.220.31.205:1883", {title: "Server address"}]
- - ["rpc.mqtt.enable", true]
+ - ["mqtt.enable", "b", false, {title: "Enable MQTT functionality"}]
+ - ["mqtt.pass", "s", "equipo1pw", {title: "User password"}]
+ - ["mqtt.user", "s", "equipo1", {title: "MQTT user name"}]
+ - ["mqtt.server", "s", "iotver.ddns.net:1883", {title: "Server address"}]
+ - ["rpc.mqtt.enable", false]
  - ["sys.mount.fs_size", "i", 1024, {title: "Filesystem size in KB"}]
  #- ["debug.level", 1]             # Nivel de depuración (ajusta según sea necesario)
  #- ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0

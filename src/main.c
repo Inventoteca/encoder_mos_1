@@ -57,7 +57,7 @@ static time_t start_time, end_time, actual_time;
 static int litros = 0;
 static int precio = 0;
 static float pulsos_litro = 1;
-static float precio_litro =  10;
+static float precio_litro =  9.8;
 char time_str[9];
 char date_str[12];
 char folio_str[4];
@@ -76,8 +76,8 @@ struct mgos_ds3231 *rtc = NULL;
 time_t now;
 struct tm *t;
 
-static const char *log_folder = "folios";
-static const char *report_folder = "reportes";
+//static const char *log_folder = "folios";
+//static const char *report_folder = "reportes";
 // Comandos de inicialización y formateo de texto ESC/POS
   uint8_t init_cmd[] = {0x1B, 0x40};  // Inicializar la impresora
   uint8_t center_cmd[] = {0x1B, 0x61, 0x01};  // Centrar texto
@@ -88,6 +88,54 @@ static const char *report_folder = "reportes";
   uint8_t end_print_cmd[] = {0x1D, 0x56, 0x42};  // Cortar papel
   //ser.write(b'\x1D\x56\x42\x00')
   //ser.write(b'\x1B\x6D\x42\x00')
+
+// ------------------------------------------------------------- send_to_display
+void send_to_display() {
+  json_str_msg = json_asprintf("{method: med, params: {Litros: \"%d\", Precio: \"%d\"}}", litros, precio);
+
+  if (json_str_msg != NULL) {
+    if (last_json_str_msg == NULL || strcmp(last_json_str_msg, json_str_msg) != 0) {
+      mgos_uart_printf(UART_NO, "%s\n", json_str_msg);
+
+      // Liberar la memoria del último mensaje
+      if (last_json_str_msg != NULL) {
+        free(last_json_str_msg);
+      }
+
+      // Guardar el nuevo mensaje como el último mensaje enviado
+      last_json_str_msg = json_str_msg;
+    } else {
+      // Si el mensaje es el mismo, liberar la memoria del mensaje actual
+      free(json_str_msg);
+    }
+  }
+
+  now = time(NULL);
+  t = localtime(&now);
+
+  snprintf(time_str, sizeof(time_str), "%02d:%02d", t->tm_hour,t->tm_min); 
+  strftime(date_str, sizeof(date_str), "%d/%b/%Y", t);
+  snprintf(folio_str, sizeof(folio_str), "%lld", folio);
+
+  char *json_str_msg2 = json_asprintf("{method: time, params: {hour: \"%s\", day:\"%s\", folio:\"%s\"}}", time_str, date_str, folio_str);
+  if (json_str_msg2 != NULL) {
+    if (last_json_str_msg2 == NULL || strcmp(last_json_str_msg2, json_str_msg2) != 0) {
+      mgos_uart_printf(UART_NO, "%s\n", json_str_msg2);
+
+      // Liberar la memoria del último mensaje
+      if (last_json_str_msg2 != NULL) {
+        free(last_json_str_msg2);
+      }
+
+      // Guardar el nuevo mensaje como el último mensaje enviado
+      last_json_str_msg2 = json_str_msg2;
+    } else {
+      // Si el mensaje es el mismo, liberar la memoria del mensaje actual
+      free(json_str_msg2);
+    }
+  }
+
+}
 
 
 //----------------------------------------------------- print_report
@@ -179,7 +227,7 @@ void print_tiket(char *json_str) {
   
   // Imprimir fecha y folio desde el JSON
   struct json_token date_tok, folio_tok, litros_tok, precio_tok, precio_litro_tok;
-  if (json_scanf(json_str, strlen(json_str), "{end_time: %T, folio: %T, litros: %T, precio: %T, precio_litro: %T}", 
+  if (json_scanf(json_str, strlen(json_str), "{e_time: %T, folio: %T, litros: %T, precio: %T, precio_l: %T}", 
                 &date_tok, &folio_tok, &litros_tok, &precio_tok, &precio_litro_tok) == 5) {
     char date[32], folio[32], litros[32], precio[32], precio_litro[32];
     snprintf(date, date_tok.len + 1, "%.*s", date_tok.len, date_tok.ptr);
@@ -315,7 +363,10 @@ void make_report() {
       {
         print_report(report_str);
         reporte++;
-        mgos_mqtt_pub("my/topic", report_str, strlen(report_str), 1, 0); 
+        //mgos_mqtt_pub("my/topic", report_str, strlen(report_str), 1, 0); 
+      char full_topic_str[128];
+      snprintf(full_topic_str, sizeof(full_topic_str), "%s/out", topic_str);
+      mgos_mqtt_pub(full_topic_str, report_str, strlen(report_str), 1, 0);  /* Publish */
       }
     } else {
       LOG(LL_ERROR, ("Failed to open report file for writing: %s", report_file_path));
@@ -388,9 +439,9 @@ void save_report_file() {
   char *json_str = json_asprintf(
     "{"
     "folio: %lld,"
-    "pulsos_litro: %.2f,"
+    "pulsos_l: %.2f,"
     "litros: %d,"
-    "precio_litro: %.2f,"
+    "precio_l: %.2f,"
     "precio: %d"
     "}\n",
     folio, pulsos_litro, litros, precio_litro, precio
@@ -404,10 +455,7 @@ void save_report_file() {
       fwrite(json_str, 1, strlen(json_str), f);
       fclose(f);
       LOG(LL_INFO, ("Saved to file: %s", file_path));
-      //print_tiket(json_str);
-      char full_topic_str[128];
-      snprintf(full_topic_str, sizeof(full_topic_str), "%s/out", topic_str);
-      mgos_mqtt_pub(full_topic_str, json_str, strlen(json_str), 1, 0);  /* Publish */
+      
     } else {
       LOG(LL_ERROR, ("Failed to open file for writing: %s", file_path));
     }
@@ -433,14 +481,14 @@ void save_to_file_in_folder() {
   char *json_str = json_asprintf(
     "{"
     "folio: %lld,"
-    "start_time: \"%s\","
-    "end_time: \"%s\","
-    "start_position: %lld,"
-    "end_position: %lld,"
-    "current_pulses: %lld,"
-    "pulsos_litro: %.2f,"
+    "s_time: \"%s\","
+    "e_time: \"%s\","
+    "s_pos: %lld,"
+    "e_pos: %lld,"
+    "pulses: %lld,"
+    "pulsos_l: %.2f,"
     "litros: %d,"
-    "precio_litro: %.2f,"
+    "precio_l: %.2f,"
     "precio: %d"
     "}\n",
     folio, start_time_str, end_time_str, start_service_position, end_service_position, current, pulsos_litro, litros, precio_litro, precio
@@ -482,14 +530,13 @@ static void updateEncoder() {
     position--;
   }
 
+  //position = abs(position);
+
   lastEncoded = encoded; // Actualizar el último estado
   //mgos_gpio_write(LED_PIN,1);
   //LOG(LL_INFO, ("Encoder Position: %d", position));
 }
 
-//int get_position() {
- // return position;
-//}
 
 // ----------------------------------------------------------- encoder_init
 bool encoder_init() {
@@ -567,17 +614,12 @@ static void load_position() {
   }
 }
 
-// ---------------------------------------------------------------- timer cb (debug)
-static void timer_cb(void *arg) {
-  save_position();
-  (void)arg;
-}
-
 
 // ------------------------------------------------------------- timer_delta
 static void timer_delta(void *arg) {
   end_position = position;
-  if ((position - last_position) > delta) {
+  if (abs(position - last_position) > delta) {
+    save_position();
     timer_counter = 0;
     if (on_service == 0) {
       // ------------------------- START
@@ -601,8 +643,10 @@ static void timer_delta(void *arg) {
         end_time = time(NULL);
         if(litros > 0)
         {
+          save_position();
           save_to_file_in_folder(); // Save data to file when service ends
           save_report_file();
+          last_json_str_msg = NULL;
           current = 0;
           folio++;
         }
@@ -612,7 +656,7 @@ static void timer_delta(void *arg) {
   }
 
   if (on_service) {
-    current = end_position - start_position;
+    current = abs(end_position - start_position);
     //if(current > 0)
     litros = current / pulsos_litro;
     precio = litros * precio_litro;
@@ -622,65 +666,10 @@ static void timer_delta(void *arg) {
     precio = 0;
   }
 
+  send_to_display();
   last_position = position;
   (void)arg;
 }
-
-// ------------------------------------------------------------- timer_display
-static void timer_display(void *arg) {
-  json_str_msg = json_asprintf("{method: med, params: {Litros: \"%d\", Precio: \"%d\"}}", litros, precio);
-
-  if (json_str_msg != NULL) {
-    if (last_json_str_msg == NULL || strcmp(last_json_str_msg, json_str_msg) != 0) {
-      mgos_uart_printf(UART_NO, "%s\n", json_str_msg);
-
-      // Liberar la memoria del último mensaje
-      if (last_json_str_msg != NULL) {
-        free(last_json_str_msg);
-      }
-
-      // Guardar el nuevo mensaje como el último mensaje enviado
-      last_json_str_msg = json_str_msg;
-    } else {
-      // Si el mensaje es el mismo, liberar la memoria del mensaje actual
-      free(json_str_msg);
-    }
-  }
-
-  (void)arg;
-}
-
-
-
-// ------------------------------------------------------------- timer_date
-static void timer_date(void *arg) {
-  now = time(NULL);
-  t = localtime(&now);
-
-  snprintf(time_str, sizeof(time_str), "%02d:%02d", t->tm_hour,t->tm_min); 
-  strftime(date_str, sizeof(date_str), "%d/%b/%Y", t);
-  snprintf(folio_str, sizeof(folio_str), "%lld", folio);
-
-  char *json_str_msg2 = json_asprintf("{method: time, params: {hour: \"%s\", day:\"%s\", folio:\"%s\"}}", time_str, date_str, folio_str);
-  if (json_str_msg2 != NULL) {
-    if (last_json_str_msg2 == NULL || strcmp(last_json_str_msg2, json_str_msg2) != 0) {
-      mgos_uart_printf(UART_NO, "%s\n", json_str_msg2);
-
-      // Liberar la memoria del último mensaje
-      if (last_json_str_msg2 != NULL) {
-        free(last_json_str_msg2);
-      }
-
-      // Guardar el nuevo mensaje como el último mensaje enviado
-      last_json_str_msg2 = json_str_msg2;
-    } else {
-      // Si el mensaje es el mismo, liberar la memoria del mensaje actual
-      free(json_str_msg2);
-    }
-  }
-  (void) arg;
-}
-
 
 
 
@@ -690,7 +679,7 @@ static void uart_dispatcher(int uart_no, void *arg) {
   static bool initialized = false;
 
   if (!initialized) {
-    mbuf_init(&recv_mbuf, 1500);
+    mbuf_init(&recv_mbuf, 256);
     initialized = true;
   }
 
@@ -810,8 +799,8 @@ static void uart_init() {
   mgos_uart_config_set_defaults(UART_NO, &ucfg);
 
   ucfg.baud_rate = 115200;
-  ucfg.rx_buf_size = 1500;
-  ucfg.tx_buf_size = 1500;
+  ucfg.rx_buf_size = 256;
+  ucfg.tx_buf_size = 256;
  
   if (!mgos_uart_configure(UART_NO, &ucfg)) {
     LOG(LL_ERROR, ("Failed to configure UART%d", UART_NO));
@@ -825,8 +814,8 @@ static void uart_init() {
   //mgos_gpio_set_pull(17, MGOS_GPIO_PULL_DOWN);
   mgos_uart_config_set_defaults(UART_NO1, &ucfg);
   ucfg.baud_rate = 38400;
-  ucfg.rx_buf_size = 1500;
-  ucfg.tx_buf_size = 1500;
+  ucfg.rx_buf_size = 256;
+  ucfg.tx_buf_size = 256;
 
   if (!mgos_uart_configure(UART_NO1, &ucfg)) {
     LOG(LL_ERROR, ("Failed to configure UART%d", UART_NO1));
@@ -891,7 +880,7 @@ enum mgos_app_init_result mgos_app_init(void) {
   uart_init();     // Inicializar UART
   clear_screen();
   close_valve();
-  timer_display(NULL);
+  //timer_display(NULL);
 
   
 
@@ -905,16 +894,12 @@ enum mgos_app_init_result mgos_app_init(void) {
   if (topic_str != NULL) {
         char full_topic_str[128];
         snprintf(full_topic_str, sizeof(full_topic_str), "%s/in", topic_str);
-        mgos_mqtt_sub(full_topic_str, handler, NULL); /* Subscribe */
-        LOG(LL_INFO, ("Subscribed to topic: %s", full_topic_str));
+        //mgos_mqtt_sub(full_topic_str, handler, NULL); /* Subscribe */
+        //LOG(LL_INFO, ("Subscribed to topic: %s", full_topic_str));
     } else {
         LOG(LL_ERROR, ("topic_str is NULL"));
     }
 
-  mgos_set_timer(100 /* ms */, MGOS_TIMER_REPEAT, timer_cb, NULL);
-  mgos_set_timer(delta_time /* ms */, MGOS_TIMER_REPEAT, timer_delta, NULL);
-  mgos_set_timer(25 /* ms */, MGOS_TIMER_REPEAT, timer_display, NULL);
-  mgos_set_timer(1000 /* ms*/, MGOS_TIMER_REPEAT, timer_date, NULL);
-  //mgos_set_timer(1000 /*ms*/, MGOS_TIMER_REPEAT, timer_get_time, NULL);
-  return MGOS_APP_INIT_SUCCESS;
+mgos_set_timer(delta_time /* ms */, MGOS_TIMER_REPEAT, timer_delta, NULL);
+ return MGOS_APP_INIT_SUCCESS;
 }
