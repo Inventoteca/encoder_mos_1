@@ -41,3 +41,8 @@ secrets.yml
 # Ignore files related to credentials or API keys
 credentials.json
 
+
+# Ignore IDE-specific files
+.idea/
+*.iml
+.vscode/
