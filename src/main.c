@@ -401,6 +401,7 @@ bool open_valve() {
   on_service = 1;
   timer_counter = 0;
   start_time = time(NULL);
+  last_dif_delta_time = mgos_uptime();
   return true;
 }
 
@@ -565,6 +566,7 @@ static void check_delta() {
   start_delta_time = mgos_uptime_micros();
   dif_delta_time = start_delta_time - end_delta_time;
 
+  // Los pulsos son rapidos
   if(dif_delta_time < (delta_time/delta))
   {
     if(delta_pulses > delta)
@@ -576,6 +578,8 @@ static void check_delta() {
       current = 0;
       on_service = 1;
       start_time = time(NULL);
+      last_dif_delta_time = mgos_uptime();
+      delta_pulses = 0;
     }
     delta_pulses++;
   }
@@ -661,64 +665,68 @@ static void timer_delta(void *arg) {
   end_position = position;
   save_position();
 
+  // Hay movimiento en el encoder y es mayor al delta
+  if(abs(position - last_position) > delta)
+  {
+      // No se ha iniciado aún un servicio
+      if(on_service == 0)
+      {
+        // ------------------------- START
+        LOG(LL_INFO, ("Service Started by pulses"));
+        on_service = 2;
+        mgos_gpio_write(LED_PIN,1);
+        start_position = position - (position - last_position);
+        start_service_position = start_position;
+        current = 0;
+        start_time = time(NULL);
+      }
+      
+  }
+
   if (on_service == 1) 
   {
-    LOG(LL_INFO, ("Service Started"));
+    LOG(LL_INFO, ("Service Started by time"));
     on_service = 2;
-    
 
-  }else if(on_service == 2)
+  }
+  // ------------------------EN SERVICIO
+  else if(on_service == 2)
   {
+   // Hay movimiento en el encoder y es mayor al delta
    if(abs(position - last_position) > delta)
    {
+      // Reinicia tiempo
       last_dif_delta_time = mgos_uptime();
    }
+   // no hay movimiento
    else
    { 
-    static int64_t delta_micros;
-    delta_micros = mgos_uptime();
-    if ( (delta_micros - last_dif_delta_time) > (stop_time))
+    timer_counter = mgos_uptime();
+
+    // Tiempo actual - tiempo del ultimo movimiento = han pasado mas de tiempo
+    if ( (timer_counter - last_dif_delta_time) > (stop_time))
     {
-      LOG(LL_INFO, ("Service STOP"));
-      on_service = 0;
-        delta_pulses = 0;
-        start_position = end_position;
-        end_service_position = end_position;
+      LOG(LL_INFO, ("Time over"));     
+      end_time = time(NULL);
+
+      if(litros > 0)
+      {
+        LOG(LL_INFO, ("Service STOP"));
+        save_to_file_in_folder(); // Save data to file when service ends
+        save_report_file();
+        last_json_str_msg = NULL;
+        current = 0;
+        folio++;
+      }
+      if(valve_state)
         close_valve();
-        end_time = time(NULL);
-        if(litros > 0)
-        {
-          save_to_file_in_folder(); // Save data to file when service ends
-          save_report_file();
-          last_json_str_msg = NULL;
-          current = 0;
-          folio++;
-        }
+      start_position = end_position;
+      end_service_position = end_position;
+      on_service = 0;
+      delta_pulses = 0;
     }
    }
     
-   /* if ( (mgos_uptime_micros() - last_dif_delta_time) > (stop_time* 1000)) 
-    {
-      
-        //last_dif_delta_time = mgos_uptime_micros();
-        // ------------------------- END
-        on_service = 0;
-        delta_pulses = 0;
-        start_position = end_position;
-        end_service_position = end_position;
-        close_valve();
-        end_time = time(NULL);
-        if(litros > 0)
-        {
-          save_to_file_in_folder(); // Save data to file when service ends
-          save_report_file();
-          last_json_str_msg = NULL;
-          current = 0;
-          folio++;
-        }
-        
-      
-    }*/
   }
   
   if (on_service > 0)

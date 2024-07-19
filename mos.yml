@@ -58,7 +58,7 @@ config_schema:
  - ["app.precio_litro", "f", 10, {title: "Precio unitario litro"}]
  - ["app.delta", "i", 3, {title: "Pulsos para iniciar proceso"}]
  - ["app.stop_time", "i", 5, {title: "Segundos de espera para fin de proceso"}]
- - ["app.delta_time", "i", 300, {title: "Milisegundos para checahr cambio"}]
+ - ["app.delta_time", "i", 100, {title: "Milisegundos para checahr cambio"}]
  - ["wifi.sta.ssid", "Inventoteca_2G"]
  - ["wifi.sta.pass", "science_7425"]
  - ["wifi.sta.enable", false]
@@ -85,7 +85,7 @@ config_schema:
  - ["mqtt.user", "s", "equipo1", {title: "MQTT user name"}]
  - ["mqtt.server", "s", "iotver.ddns.net:1883", {title: "Server address"}]
  - ["rpc.mqtt.enable", false]
- - ["sys.mount.fs_size", "i", 1024, {title: "Filesystem size in KB"}]
+ #- ["sys.mount.fs_size", "i", 1024, {title: "Filesystem size in KB"}]
  #- ["debug.level", 1]             # Nivel de depuración (ajusta según sea necesario)
  #- ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0
  #- ["debug.stderr_uart", -1]      # Deshabilitar la salida de error en UART0
