@@ -27,9 +27,9 @@ libs:
   #- origin: https://github.com/mongoose-os-libs/js-demo-bundle
   - origin: https://github.com/mongoose-os-libs/core
   #- origin: https://github.com/mongoose-os-libs/ca-bundle
-  #- origin: https://github.com/mongoose-os-libs/rpc-service-config
-  #- origin: https://github.com/mongoose-os-libs/rpc-service-fs
-  #- origin: https://github.com/mongoose-os-libs/rpc-service-i2c
+  - origin: https://github.com/mongoose-os-libs/rpc-service-config
+  - origin: https://github.com/mongoose-os-libs/rpc-service-fs
+  - origin: https://github.com/mongoose-os-libs/rpc-service-i2c
   #- origin: https://github.com/mongoose-os-libs/rpc-uart
   #- origin: https://github.com/mongoose-os-libs/mjs 
   - origin: https://github.com/mongoose-os-libs/wifi
@@ -39,10 +39,13 @@ libs:
   #- origin: https://github.com/mongoose-os-libs/dash
   #- origin: https://github.com/mongoose-os-libs/shadow
   #- origin: https://github.com/mongoose-os-libs/file-logger
-  #- origin: https://github.com/mongoose-os-libs/i2c
+  - origin: https://github.com/mongoose-os-libs/i2c
   - origin: https://github.com/mongoose-os-libs/ds3231
   - origin: https://github.com/mongoose-os-libs/mqtt
-  #- origin: https://github.com/mongoose-os-libs/rpc-mqtt
+  - origin: https://github.com/mongoose-os-libs/rpc-mqtt
+
+build_vars:
+  ESP_IDF_EXTRA_COMPONENTS: PCNT
 
 
 config_schema:
@@ -61,7 +64,7 @@ config_schema:
  - ["app.delta_time", "i", 100, {title: "Milisegundos para checahr cambio"}]
  - ["wifi.sta.ssid", "Inventoteca_2G"]
  - ["wifi.sta.pass", "science_7425"]
- - ["wifi.sta.enable", false]
+ - ["wifi.sta.enable", true]
  - ["sntp", "o", {title: "SNTP settings"}]
  - ["sntp.enable", "b", false, {title: "Enable SNTP"}]
  - ["sntp.server", "s", "time.google.com", {title: "Server address"}]
@@ -80,11 +83,11 @@ config_schema:
  - ["i2c.freq", "i", 100000, {title: "I2C Frequency (Hz)"}]
  - ["i2c.sda_gpio", "i", 21, {title: "I2C SDA GPIO Pin"}]
  - ["i2c.scl_gpio", "i", 22, {title: "I2C SCL GPIO Pin"}]
- - ["mqtt.enable", "b", false, {title: "Enable MQTT functionality"}]
+ - ["mqtt.enable", "b", true, {title: "Enable MQTT functionality"}]
  - ["mqtt.pass", "s", "equipo1pw", {title: "User password"}]
  - ["mqtt.user", "s", "equipo1", {title: "MQTT user name"}]
  - ["mqtt.server", "s", "iotver.ddns.net:1883", {title: "Server address"}]
- - ["rpc.mqtt.enable", false]
+ - ["rpc.mqtt.enable", true]
  #- ["sys.mount.fs_size", "i", 1024, {title: "Filesystem size in KB"}]
  #- ["debug.level", 1]             # Nivel de depuración (ajusta según sea necesario)
  #- ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0
@@ -116,4 +119,19 @@ config_schema:
 #  - ["debug.level", 3]
 
 # Used by the mos tool to catch mos binaries incompatible with this file format
+
+ffi_symbols:
+  - pcnt_unit_config
+  - pcnt_counter_pause
+  - pcnt_counter_resume
+  - pcnt_counter_clear
+  - pcnt_get_counter_value
+  - pcnt_event_enable
+  - pcnt_event_disable
+  - pcnt_isr_service_install
+  - pcnt_isr_handler_add
+  - pcnt_isr_handler_remove
+  - pcnt_set_event_value
+  - pcnt_set_filter_value
+
 manifest_version: 2017-09-29

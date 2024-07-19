@@ -29,6 +29,8 @@
 #include <stdint.h>
 #include "mgos_mqtt.h"
 #include <stdlib.h>
+#include "driver/pcnt.h"
+#include "esp_log.h"
 //#include "mgos_mdash_api.h"
 
 
@@ -75,7 +77,19 @@ int LED_PIN;
 int VALVE_PIN;
 int UART_NO = 0;
 int UART_NO1 = 2;
+
 #define MGOS_DS3231_DEFAULT_I2C_ADDR  104
+#define PCNT_UNIT PCNT_UNIT_0
+#define PCNT_INPUT_PIN_A 26
+#define PCNT_INPUT_PIN_B 27
+#define FILTER_VALUE 250  // Valor del filtro de ruido
+#define TIMER_INTERVAL_MS 500  // Intervalo del temporizador en ms
+
+static portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
+
+#define _ENTER_CRITICAL() portENTER_CRITICAL_SAFE(&spinlock)
+#define _EXIT_CRITICAL() portEXIT_CRITICAL_SAFE(&spinlock)
+
 //int addr = 104;
 
 // Declaración del manejador del DS3231
@@ -97,6 +111,97 @@ struct tm *t;
   //ser.write(b'\x1B\x6D\x42\x00')
 
 
+//
+
+//----------------------------------------------------pcnt_intr_handler
+static void IRAM_ATTR pcnt_intr_handler(void *arg) {
+  uint32_t intr_status;
+  pcnt_get_event_status(PCNT_UNIT, &intr_status);
+
+  if (intr_status & PCNT_EVT_H_LIM) {
+    _ENTER_CRITICAL();
+    position += 32767;
+    _EXIT_CRITICAL();
+    pcnt_counter_clear(PCNT_UNIT);
+  } else if (intr_status & PCNT_EVT_L_LIM) {
+    _ENTER_CRITICAL();
+    position -= 32768;
+    _EXIT_CRITICAL();
+    pcnt_counter_clear(PCNT_UNIT);
+  }
+}
+
+// --------------------------------------------get_pcnt_count
+int64_t get_pcnt_count() {
+  int64_t total_count = 0;
+  int16_t current_pcnt_count = 0;
+  pcnt_get_counter_value(PCNT_UNIT, &current_pcnt_count);
+
+  _ENTER_CRITICAL();
+  int16_t delta = current_pcnt_count - last_position;
+  if (delta > 16383) {  // 32767 / 2
+    position += (int64_t)(delta - 32768);
+  } else if (delta < -16384) {  // -32768 / 2
+    position += (int64_t)(delta + 32767);
+  } else {
+    position += delta;
+  }
+  total_count = position;
+  last_position = current_pcnt_count;
+  _EXIT_CRITICAL();
+
+  return total_count;
+}
+
+/// ---------------------------------------------- pcnt_init
+void encoder_pcnt_init() {
+ 
+  // Configuración común para ambos canales del PCNT
+  pcnt_config_t pcnt_config = {
+    .unit = PCNT_UNIT,
+    .counter_h_lim = 32767,
+    .counter_l_lim = -32768,
+  };
+
+  // Configuración del canal 0 del PCNT
+  pcnt_config.pulse_gpio_num = PCNT_INPUT_PIN_A;
+  pcnt_config.ctrl_gpio_num = PCNT_INPUT_PIN_B;
+  pcnt_config.channel = PCNT_CHANNEL_0;
+  pcnt_config.pos_mode = PCNT_COUNT_INC;  // Incrementar en flanco positivo de A cuando B es alto
+  pcnt_config.neg_mode = PCNT_COUNT_DEC;  // Decrementar en flanco negativo de A cuando B es alto
+  pcnt_config.lctrl_mode = PCNT_MODE_KEEP;
+  pcnt_config.hctrl_mode = PCNT_MODE_REVERSE;
+
+  // Inicialización del canal 0 del PCNT
+  pcnt_unit_config(&pcnt_config);
+
+  // Configuración del canal 1 del PCNT
+  pcnt_config.pulse_gpio_num = PCNT_INPUT_PIN_B;
+  pcnt_config.ctrl_gpio_num = PCNT_INPUT_PIN_A;
+  pcnt_config.channel = PCNT_CHANNEL_1;
+  pcnt_config.pos_mode = PCNT_COUNT_INC;  // Incrementar en flanco positivo de B cuando A es bajo
+  pcnt_config.neg_mode = PCNT_COUNT_DEC;  // Decrementar en flanco negativo de B cuando A es bajo
+  pcnt_config.lctrl_mode = PCNT_MODE_REVERSE;
+  pcnt_config.hctrl_mode = PCNT_MODE_KEEP;
+
+  // Inicialización del canal 1 del PCNT
+  pcnt_unit_config(&pcnt_config);
+
+  // Configuración del filtro de ruido
+  pcnt_set_filter_value(PCNT_UNIT, FILTER_VALUE);
+  pcnt_filter_enable(PCNT_UNIT);
+
+  // Habilitar eventos en valores límite
+  pcnt_event_enable(PCNT_UNIT, PCNT_EVT_H_LIM);
+  pcnt_event_enable(PCNT_UNIT, PCNT_EVT_L_LIM);
+
+  // Pausar y limpiar el contador del PCNT
+  pcnt_counter_pause(PCNT_UNIT);
+  pcnt_counter_clear(PCNT_UNIT);
+
+  // Reanudar el contador
+  pcnt_counter_resume(PCNT_UNIT);
+}
 
 // ------------------------------------------------------------- send_to_display
 void send_to_display() {
@@ -662,6 +767,10 @@ static void load_position() {
 
 // ------------------------------------------------------------- timer_delta
 static void timer_delta(void *arg) {
+  position = get_pcnt_count();
+  LOG(LL_INFO, ("pos: %lld", position));
+
+
   end_position = position;
   save_position();
 
@@ -955,7 +1064,8 @@ enum mgos_app_init_result mgos_app_init(void) {
   start_delta_time = mgos_uptime();
   end_delta_time = start_delta_time;
 
-  encoder_init();
+  //encoder_init();
+  encoder_pcnt_init();
   load_position(); // Cargar la posición desde el archivo al iniciar
   uart_init();     // Inicializar UART
   clear_screen();
