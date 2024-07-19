@@ -46,11 +46,17 @@ static int64_t end_service_position = 0;
 static int64_t current = 0;
 static int64_t folio = 1;
 static int64_t reporte = 1;
+static int64_t start_delta_time = 0;
+static int64_t end_delta_time = 0;
+static int64_t dif_delta_time = 0;
+static int64_t last_dif_delta_time = 0;
 static int lastEncoded = 0;
 static int delta = 2;
+static int delta_pulses = 0;
 static int on_service = 0;
 static int stop_time = 10;   // Segundos después para declarar el fin del servicio
 static int delta_time = 5;
+static int delta_counter = 5;
 static int valve_state;
 static int timer_counter;
 static time_t start_time, end_time, actual_time;
@@ -61,6 +67,7 @@ static float precio_litro =  9.8;
 char time_str[9];
 char date_str[12];
 char folio_str[4];
+
 
 int ENCODER_PIN_A;
 int ENCODER_PIN_B;
@@ -88,6 +95,8 @@ struct tm *t;
   uint8_t end_print_cmd[] = {0x1D, 0x56, 0x42};  // Cortar papel
   //ser.write(b'\x1D\x56\x42\x00')
   //ser.write(b'\x1B\x6D\x42\x00')
+
+
 
 // ------------------------------------------------------------- send_to_display
 void send_to_display() {
@@ -515,46 +524,6 @@ void save_to_file_in_folder() {
   }
 
 }
-
-// ------------------------------------------------------ updateEncoder
-static void updateEncoder() {
-  int MSB = mgos_gpio_read(ENCODER_PIN_A); // MSB = most significant bit
-  int LSB = mgos_gpio_read(ENCODER_PIN_B); // LSB = least significant bit
-
-  int encoded = (MSB << 1) | LSB; // Combinar los estados de los pines A y B
-  int sum = (lastEncoded << 2) | encoded; // Combinar con el último estado
-
-  if (sum == 13 || sum == 4 || sum == 2 || sum == 11) {
-    position++;
-  } else if (sum == 14 || sum == 7 || sum == 1 || sum == 8) {
-    position--;
-  }
-
-  //position = abs(position);
-
-  lastEncoded = encoded; // Actualizar el último estado
-  //mgos_gpio_write(LED_PIN,1);
-  //LOG(LL_INFO, ("Encoder Position: %d", position));
-}
-
-
-// ----------------------------------------------------------- encoder_init
-bool encoder_init() {
-  mgos_gpio_set_mode(ENCODER_PIN_A, MGOS_GPIO_MODE_INPUT);
-  mgos_gpio_set_mode(ENCODER_PIN_B, MGOS_GPIO_MODE_INPUT);
-
-  mgos_gpio_set_pull(ENCODER_PIN_A, MGOS_GPIO_PULL_UP);
-  mgos_gpio_set_pull(ENCODER_PIN_B, MGOS_GPIO_PULL_UP);
-
-  mgos_gpio_set_int_handler(ENCODER_PIN_A, MGOS_GPIO_INT_EDGE_ANY, updateEncoder, NULL);
-  mgos_gpio_set_int_handler(ENCODER_PIN_B, MGOS_GPIO_INT_EDGE_ANY, updateEncoder, NULL);
-
-  mgos_gpio_enable_int(ENCODER_PIN_A);
-  mgos_gpio_enable_int(ENCODER_PIN_B);
-
-  return true;
-}
-
 // -------------------------------------------------------- save position
 static void save_position() {
   char *json_str = json_asprintf("{position: %lld, on_service: %d, start_position: %lld, end_position: %lld, folio: %lld, reporte: %lld}", position, on_service, start_position, end_position, folio, reporte);
@@ -591,6 +560,76 @@ static void save_position() {
   }
 }
 
+// ------------------------------------------------------------- check_delta
+static void check_delta() {
+  start_delta_time = mgos_uptime_micros();
+  dif_delta_time = start_delta_time - end_delta_time;
+
+  if(dif_delta_time < (delta_time/delta))
+  {
+    if(delta_pulses > delta)
+    {
+      // ------------------------- START
+      mgos_gpio_write(LED_PIN,1);
+      start_position = position - (position - last_position);
+      start_service_position = start_position;
+      current = 0;
+      on_service = 1;
+      start_time = time(NULL);
+    }
+    delta_pulses++;
+  }
+  else
+    delta_pulses = 0;
+  
+  end_delta_time = start_delta_time;
+  
+}
+
+// ------------------------------------------------------ updateEncoder
+static void updateEncoder() {
+  int MSB = mgos_gpio_read(ENCODER_PIN_A); // MSB = most significant bit
+  int LSB = mgos_gpio_read(ENCODER_PIN_B); // LSB = least significant bit
+
+  int encoded = (MSB << 1) | LSB; // Combinar los estados de los pines A y B
+  int sum = (lastEncoded << 2) | encoded; // Combinar con el último estado
+
+  if (sum == 13 || sum == 4 || sum == 2 || sum == 11) {
+    position++;
+  } else if (sum == 14 || sum == 7 || sum == 1 || sum == 8) {
+    position--;
+  }
+
+  if((on_service == 0))
+  {
+    check_delta();
+  }
+  
+  lastEncoded = encoded; // Actualizar el último estado
+  //mgos_gpio_write(LED_PIN,1);
+  //LOG(LL_INFO, ("Encoder Position: %d", position));
+  
+}
+
+
+// ----------------------------------------------------------- encoder_init
+bool encoder_init() {
+  mgos_gpio_set_mode(ENCODER_PIN_A, MGOS_GPIO_MODE_INPUT);
+  mgos_gpio_set_mode(ENCODER_PIN_B, MGOS_GPIO_MODE_INPUT);
+
+  mgos_gpio_set_pull(ENCODER_PIN_A, MGOS_GPIO_PULL_UP);
+  mgos_gpio_set_pull(ENCODER_PIN_B, MGOS_GPIO_PULL_UP);
+
+  mgos_gpio_set_int_handler(ENCODER_PIN_A, MGOS_GPIO_INT_EDGE_ANY, updateEncoder, NULL);
+  mgos_gpio_set_int_handler(ENCODER_PIN_B, MGOS_GPIO_INT_EDGE_ANY, updateEncoder, NULL);
+
+  mgos_gpio_enable_int(ENCODER_PIN_A);
+  mgos_gpio_enable_int(ENCODER_PIN_B);
+
+  return true;
+}
+
+
 // ------------------------------------------------------------- load_pos
 static void load_position() {
   FILE *f = fopen(filename, "r");
@@ -608,42 +647,69 @@ static void load_position() {
       last_position = position;
     }
 
-    LOG(LL_INFO, ("Reporte loaded from file: %lld", reporte));
+    //save_position();
   } else {
     LOG(LL_ERROR, ("Failed to open file for reading"));
   }
 }
 
 
+
+
 // ------------------------------------------------------------- timer_delta
 static void timer_delta(void *arg) {
   end_position = position;
-  if (abs(position - last_position) > delta) {
-    save_position();
-    timer_counter = 0;
-    if (on_service == 0) {
-      // ------------------------- START
-      start_position = position - (position - last_position);
-      start_service_position = start_position;
-      current = 0;
-      on_service = 1;
-      start_time = time(NULL);
-    }
-  } else {
-    timer_counter++;
+  save_position();
 
-    if (timer_counter > (stop_time * (1000/delta_time))) {
-      if (on_service) {
-        // ------------------------- END
-        on_service = 0;
-        timer_counter = 0;
+  if (on_service == 1) 
+  {
+    LOG(LL_INFO, ("Service Started"));
+    on_service = 2;
+    
+
+  }else if(on_service == 2)
+  {
+   if(abs(position - last_position) > delta)
+   {
+      last_dif_delta_time = mgos_uptime();
+   }
+   else
+   { 
+    static int64_t delta_micros;
+    delta_micros = mgos_uptime();
+    if ( (delta_micros - last_dif_delta_time) > (stop_time))
+    {
+      LOG(LL_INFO, ("Service STOP"));
+      on_service = 0;
+        delta_pulses = 0;
         start_position = end_position;
         end_service_position = end_position;
         close_valve();
         end_time = time(NULL);
         if(litros > 0)
         {
-          save_position();
+          save_to_file_in_folder(); // Save data to file when service ends
+          save_report_file();
+          last_json_str_msg = NULL;
+          current = 0;
+          folio++;
+        }
+    }
+   }
+    
+   /* if ( (mgos_uptime_micros() - last_dif_delta_time) > (stop_time* 1000)) 
+    {
+      
+        //last_dif_delta_time = mgos_uptime_micros();
+        // ------------------------- END
+        on_service = 0;
+        delta_pulses = 0;
+        start_position = end_position;
+        end_service_position = end_position;
+        close_valve();
+        end_time = time(NULL);
+        if(litros > 0)
+        {
           save_to_file_in_folder(); // Save data to file when service ends
           save_report_file();
           last_json_str_msg = NULL;
@@ -651,16 +717,19 @@ static void timer_delta(void *arg) {
           folio++;
         }
         
-      }
-    }
+      
+    }*/
   }
-
-  if (on_service) {
+  
+  if (on_service > 0)
+  {
     current = abs(end_position - start_position);
     //if(current > 0)
     litros = current / pulsos_litro;
     precio = litros * precio_litro;
-  } else {
+  }
+  
+  else {
     current = 0;
     litros = 0;
     precio = 0;
@@ -799,8 +868,8 @@ static void uart_init() {
   mgos_uart_config_set_defaults(UART_NO, &ucfg);
 
   ucfg.baud_rate = 115200;
-  ucfg.rx_buf_size = 256;
-  ucfg.tx_buf_size = 256;
+  ucfg.rx_buf_size = 1500;
+  ucfg.tx_buf_size = 1500;
  
   if (!mgos_uart_configure(UART_NO, &ucfg)) {
     LOG(LL_ERROR, ("Failed to configure UART%d", UART_NO));
@@ -814,8 +883,8 @@ static void uart_init() {
   //mgos_gpio_set_pull(17, MGOS_GPIO_PULL_DOWN);
   mgos_uart_config_set_defaults(UART_NO1, &ucfg);
   ucfg.baud_rate = 38400;
-  ucfg.rx_buf_size = 256;
-  ucfg.tx_buf_size = 256;
+  ucfg.rx_buf_size = 1500;
+  ucfg.tx_buf_size = 1500;
 
   if (!mgos_uart_configure(UART_NO1, &ucfg)) {
     LOG(LL_ERROR, ("Failed to configure UART%d", UART_NO1));
@@ -874,6 +943,9 @@ enum mgos_app_init_result mgos_app_init(void) {
   mgos_gpio_write(LED_PIN, 0);
   mgos_gpio_setup_output(VALVE_PIN, 0);
   mgos_gpio_write(VALVE_PIN, 0);
+
+  start_delta_time = mgos_uptime();
+  end_delta_time = start_delta_time;
 
   encoder_init();
   load_position(); // Cargar la posición desde el archivo al iniciar
