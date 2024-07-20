@@ -703,7 +703,7 @@ static void timer_delta(void *arg) {
   }
 
   if (abs(delta_pulses) > delta) {
-    LOG(LL_INFO, ("delta: "));
+    //LOG(LL_INFO, ("delta: "));
     timer_counter = 0;
     if (on_service == 0) {
       LOG(LL_INFO, ("--- START SERVICE ---"));
