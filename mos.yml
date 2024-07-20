@@ -26,7 +26,7 @@ libs:
   #- origin: https://github.com/mongoose-os-libs/boards
   #- origin: https://github.com/mongoose-os-libs/js-demo-bundle
   - origin: https://github.com/mongoose-os-libs/core
-  - origin: https://github.com/mongoose-os-libs/ca-bundle
+  #- origin: https://github.com/mongoose-os-libs/ca-bundle
   - origin: https://github.com/mongoose-os-libs/rpc-service-config
   - origin: https://github.com/mongoose-os-libs/rpc-service-fs
   - origin: https://github.com/mongoose-os-libs/rpc-service-i2c
@@ -36,7 +36,7 @@ libs:
   #- origin: https://github.com/mongoose-os-libs/sntp
   #- origin: https://github.com/mongoose-os-libs/ota-http-server
   - origin: https://github.com/mongoose-os-libs/rpc-service-ota
-  - origin: https://github.com/mongoose-os-libs/dash
+  #- origin: https://github.com/mongoose-os-libs/dash
   #- origin: https://github.com/mongoose-os-libs/shadow
   #- origin: https://github.com/mongoose-os-libs/file-logger
   - origin: https://github.com/mongoose-os-libs/i2c
@@ -62,6 +62,8 @@ config_schema:
  - ["app.delta", "i", 3, {title: "Pulsos para iniciar proceso"}]
  - ["app.stop_time", "i", 10, {title: "Segundos de espera para fin de proceso"}]
  - ["app.delta_time", "i", 100, {title: "Milisegundos para checahr cambio"}]
+ - ["app.MAX_FILES", "i", 30, {title: "Maximo numero de folios"}]
+ - ["app.MAX_REPORTS", "i", 10, {title: "Maximo numero de reportes"}]
  - ["wifi.sta.ssid", "Inventoteca_2G"]
  - ["wifi.sta.pass", "science_7425"]
  - ["wifi.sta.enable", true]
@@ -77,7 +79,7 @@ config_schema:
  #- ["file_logger.log_file_max_size", "i", 5000, {title: "Max log file size in bytes"}]
  #- ["file_logger.max_log_files", "i", 10, {title: "Max number of log files"}]
  #- ["file_logger.enable", true]
- - ["dash.enable", true]
+ - ["dash.enable", false]
  - ["dash.token", "LeaoeL0oKfKjFpPwxQUtOw"]
  - ["i2c.enable", "b", false, {title: "Enable I2C"}]
  - ["i2c.freq", "i", 100000, {title: "I2C Frequency (Hz)"}]

@@ -32,6 +32,9 @@
 #include "driver/pcnt.h"
 #include "esp_log.h"
 //#include "mgos_mdash_api.h"
+#include <string.h>
+#include <dirent.h>
+#include <limits.h>
 
 
 static const char *topic_str = NULL;
@@ -79,6 +82,8 @@ int LED_PIN;
 int VALVE_PIN;
 int UART_NO = 0;
 int UART_NO1 = 2;
+int MAX_FILES = 30;
+int MAX_REPORTS = 30;
 
 #define MGOS_DS3231_DEFAULT_I2C_ADDR  104
 #define PCNT_UNIT PCNT_UNIT_0
@@ -92,7 +97,9 @@ static portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
 #define _ENTER_CRITICAL() portENTER_CRITICAL_SAFE(&spinlock)
 #define _EXIT_CRITICAL() portEXIT_CRITICAL_SAFE(&spinlock)
 
-//int addr = 104;
+// Define el número máximo de archivos que se pueden guardar
+
+
 
 // Declaración del manejador del DS3231
 struct mgos_ds3231 *rtc = NULL;
@@ -532,61 +539,58 @@ bool close_valve() {
   return false;
 }
 
-// ------------------------------------------------------- save_repor_file
-void save_report_file() {
-  //create_folder(log_folder);
 
-  char file_path[100];
-  //snprintf(file_path, sizeof(file_path), "fol_%04d_%02d_%02d.json", t->tm_year + 1900, t->tm_mon + 1, t->tm_mday);
-  snprintf(file_path, sizeof(file_path), "rep_%lld.json", reporte);
+// Función para obtener el folio de un archivo dado un prefijo
+long long get_folio_from_filename(const char *filename, const char *prefix) {
+  long long folio;
+  sscanf(filename + strlen(prefix), "%lld.json", &folio);
+  return folio;
+}
 
-  char start_time_str[20], end_time_str[20];
-  strftime(start_time_str, sizeof(start_time_str), "%Y-%m-%d %H:%M:%S", localtime(&start_time));
-  strftime(end_time_str, sizeof(end_time_str), "%Y-%m-%d %H:%M:%S", localtime(&end_time));
+// Función para eliminar el archivo con el folio más pequeño dado un prefijo
+void remove_oldest_file(const char *prefix) {
+  DIR *d;
+  struct dirent *dir;
+  d = opendir(".");
+  long long min_folio = LLONG_MAX;
+  char oldest_file[100] = "";
 
-  /*char *json_str = json_asprintf(
-    "{"
-    "folio: %lld,"
-    "start_time: \"%s\","
-    "end_time: \"%s\","
-    "start_position: %lld,"
-    "end_position: %lld,"
-    "current_pulses: %lld,"
-    "pulsos_litro: %.2f,"
-    "litros: %d,"
-    "precio_litro: %.2f,"
-    "precio: %d"
-    "}\n",
-    folio, start_time_str, end_time_str, start_service_position, end_service_position, current, pulsos_litro, litros, precio_litro, precio
-  );*/
-  char *json_str = json_asprintf(
-    "{"
-    "folio: %lld,"
-    "pulsos_l: %.2f,"
-    "litros: %d,"
-    "precio_l: %.2f,"
-    "precio: %d"
-    "}\n",
-    folio, pulsos_litro, litros, precio_litro, precio
-  );
-  
-  LOG(LL_INFO, ("Servicio: %s", json_str));
-
-  if (json_str != NULL) {
-    FILE *f = fopen(file_path, "a");
-    if (f != NULL) {
-      fwrite(json_str, 1, strlen(json_str), f);
-      fclose(f);
-      LOG(LL_INFO, ("Saved to file: %s", file_path));
-      
-    } else {
-      LOG(LL_ERROR, ("Failed to open file for writing: %s", file_path));
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      if (strncmp(dir->d_name, prefix, strlen(prefix)) == 0 && strstr(dir->d_name, ".json")) {
+        long long folio = get_folio_from_filename(dir->d_name, prefix);
+        if (folio < min_folio) {
+          min_folio = folio;
+          strcpy(oldest_file, dir->d_name);
+        }
+      }
     }
-    free(json_str);
-  } else {
-    LOG(LL_ERROR, ("Failed to allocate memory for JSON string"));
+    closedir(d);
   }
 
+  if (strlen(oldest_file) > 0) {
+    remove(oldest_file);
+    LOG(LL_INFO, ("Deleted old file: %s", oldest_file));
+  }
+}
+
+// Función para contar el número de archivos dado un prefijo
+int count_files(const char *prefix) {
+  DIR *d;
+  struct dirent *dir;
+  int count = 0;
+  d = opendir(".");
+
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      if (strncmp(dir->d_name, prefix, strlen(prefix)) == 0 && strstr(dir->d_name, ".json")) {
+        count++;
+      }
+    }
+    closedir(d);
+  }
+
+  return count;
 }
 
 // ------------------------------------------------------- save_to_file_in_folder
@@ -594,7 +598,6 @@ void save_to_file_in_folder() {
   //create_folder(log_folder);
 
   char file_path[100];
-  //snprintf(file_path, sizeof(file_path), "fol_%04d_%02d_%02d.json", t->tm_year + 1900, t->tm_mon + 1, t->tm_mday);
   snprintf(file_path, sizeof(file_path), "fol_%lld.json", folio);
 
   char start_time_str[20], end_time_str[20];
@@ -616,10 +619,15 @@ void save_to_file_in_folder() {
     "}\n",
     folio, start_time_str, end_time_str, start_service_position, end_service_position, current, pulsos_litro, litros, precio_litro, precio
   );
-  
+
   LOG(LL_INFO, ("Servicio: %s", json_str));
 
   if (json_str != NULL) {
+    int file_count = count_files("fol_");
+    if (file_count >= MAX_FILES) {
+      remove_oldest_file("fol_");
+    }
+
     FILE *f = fopen(file_path, "w");
     if (f != NULL) {
       fwrite(json_str, 1, strlen(json_str), f);
@@ -636,8 +644,53 @@ void save_to_file_in_folder() {
   } else {
     LOG(LL_ERROR, ("Failed to allocate memory for JSON string"));
   }
-
 }
+
+// ------------------------------------------------------- save_report_file
+void save_report_file() {
+  //create_folder(log_folder);
+
+  char file_path[100];
+  snprintf(file_path, sizeof(file_path), "rep_%lld.json", reporte);
+
+  char start_time_str[20], end_time_str[20];
+  strftime(start_time_str, sizeof(start_time_str), "%Y-%m-%d %H:%M:%S", localtime(&start_time));
+  strftime(end_time_str, sizeof(end_time_str), "%Y-%m-%d %H:%M:%S", localtime(&end_time));
+
+  char *json_str = json_asprintf(
+    "{"
+    "folio: %lld,"
+    "pulsos_l: %.2f,"
+    "litros: %d,"
+    "precio_l: %.2f,"
+    "precio: %d"
+    "}\n",
+    folio, pulsos_litro, litros, precio_litro, precio
+  );
+
+  LOG(LL_INFO, ("Servicio: %s", json_str));
+
+  if (json_str != NULL) {
+    int file_count = count_files("rep_");
+    if (file_count >= MAX_REPORTS) {
+      remove_oldest_file("rep_");
+    }
+
+    FILE *f = fopen(file_path, "w");
+    if (f != NULL) {
+      fwrite(json_str, 1, strlen(json_str), f);
+      fclose(f);
+      LOG(LL_INFO, ("Saved to file: %s", file_path));
+    } else {
+      LOG(LL_ERROR, ("Failed to open file for writing: %s", file_path));
+    }
+    free(json_str);
+  } else {
+    LOG(LL_ERROR, ("Failed to allocate memory for JSON string"));
+  }
+}
+
+
 // -------------------------------------------------------- save position
 static void save_position() {
   last_saved_position = 0;
@@ -950,6 +1003,8 @@ enum mgos_app_init_result mgos_app_init(void) {
   stop_time = mgos_sys_config_get_app_stop_time();
   delta_time = mgos_sys_config_get_app_delta_time();
   topic_str = mgos_sys_config_get_app_id();
+  MAX_FILES = mgos_sys_config_get_app_MAX_FILES();
+  MAX_REPORTS = mgos_sys_config_get_app_MAX_REPORTS();
 
   mgos_gpio_setup_output(LED_PIN, 0);
   mgos_gpio_write(LED_PIN, 0);
