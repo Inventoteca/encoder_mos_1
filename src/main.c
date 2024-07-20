@@ -41,6 +41,7 @@ static char *last_json_str_msg = NULL;
 static char *last_json_str_msg2 = NULL;
 static int64_t position = 0;
 static int64_t last_position = 0;
+static int64_t last_current_position = 0;
 static int64_t start_position = 0;
 static int64_t end_position = 0;
 static int64_t start_service_position = 0;
@@ -114,7 +115,7 @@ struct tm *t;
 //
 
 //----------------------------------------------------pcnt_intr_handler
-static void IRAM_ATTR pcnt_intr_handler(void *arg) {
+/*static void IRAM_ATTR pcnt_intr_handler(void *arg) {
   uint32_t intr_status;
   pcnt_get_event_status(PCNT_UNIT, &intr_status);
 
@@ -129,7 +130,7 @@ static void IRAM_ATTR pcnt_intr_handler(void *arg) {
     _EXIT_CRITICAL();
     pcnt_counter_clear(PCNT_UNIT);
   }
-}
+}*/
 
 // --------------------------------------------get_pcnt_count
 int64_t get_pcnt_count() {
@@ -138,7 +139,7 @@ int64_t get_pcnt_count() {
   pcnt_get_counter_value(PCNT_UNIT, &current_pcnt_count);
 
   _ENTER_CRITICAL();
-  int16_t delta = current_pcnt_count - last_position;
+  int16_t delta = current_pcnt_count - last_current_position;
   if (delta > 16383) {  // 32767 / 2
     position += (int64_t)(delta - 32768);
   } else if (delta < -16384) {  // -32768 / 2
@@ -147,7 +148,7 @@ int64_t get_pcnt_count() {
     position += delta;
   }
   total_count = position;
-  last_position = current_pcnt_count;
+  last_current_position = current_pcnt_count;
   _EXIT_CRITICAL();
 
   return total_count;
@@ -672,77 +673,6 @@ static void save_position() {
   }
 }
 
-// ------------------------------------------------------------- check_delta
-/*static void check_delta() {
-  start_delta_time = mgos_uptime_micros();
-  dif_delta_time = start_delta_time - end_delta_time;
-
-  // Los pulsos son rapidos
-  if(dif_delta_time < (delta_time/delta))
-  {
-    if(delta_pulses > delta)
-    {
-      // ------------------------- START
-      mgos_gpio_write(LED_PIN,1);
-      start_position = position - (position - last_position);
-      start_service_position = start_position;
-      current = 0;
-      on_service = 1;
-      start_time = time(NULL);
-      last_dif_delta_time = mgos_uptime();
-      delta_pulses = 0;
-    }
-    delta_pulses++;
-  }
-  else
-    delta_pulses = 0;
-  
-  end_delta_time = start_delta_time;
-  
-}*/
-
-// ------------------------------------------------------ updateEncoder
-/*static void updateEncoder() {
-  int MSB = mgos_gpio_read(ENCODER_PIN_A); // MSB = most significant bit
-  int LSB = mgos_gpio_read(ENCODER_PIN_B); // LSB = least significant bit
-
-  int encoded = (MSB << 1) | LSB; // Combinar los estados de los pines A y B
-  int sum = (lastEncoded << 2) | encoded; // Combinar con el último estado
-
-  if (sum == 13 || sum == 4 || sum == 2 || sum == 11) {
-    position++;
-  } else if (sum == 14 || sum == 7 || sum == 1 || sum == 8) {
-    position--;
-  }
-
-  if((on_service == 0))
-  {
-    check_delta();
-  }
-  
-  lastEncoded = encoded; // Actualizar el último estado
-  //mgos_gpio_write(LED_PIN,1);
-  //LOG(LL_INFO, ("Encoder Position: %d", position));
-  
-}*/
-
-
-// ----------------------------------------------------------- encoder_init
-/*bool encoder_init() {
-  mgos_gpio_set_mode(ENCODER_PIN_A, MGOS_GPIO_MODE_INPUT);
-  mgos_gpio_set_mode(ENCODER_PIN_B, MGOS_GPIO_MODE_INPUT);
-
-  mgos_gpio_set_pull(ENCODER_PIN_A, MGOS_GPIO_PULL_UP);
-  mgos_gpio_set_pull(ENCODER_PIN_B, MGOS_GPIO_PULL_UP);
-
-  mgos_gpio_set_int_handler(ENCODER_PIN_A, MGOS_GPIO_INT_EDGE_ANY, updateEncoder, NULL);
-  mgos_gpio_set_int_handler(ENCODER_PIN_B, MGOS_GPIO_INT_EDGE_ANY, updateEncoder, NULL);
-
-  mgos_gpio_enable_int(ENCODER_PIN_A);
-  mgos_gpio_enable_int(ENCODER_PIN_B);
-
-  return true;
-}*/
 
 
 // ------------------------------------------------------------- load_pos
@@ -773,76 +703,60 @@ static void load_position() {
 
 // ------------------------------------------------------------- timer_delta
 static void timer_delta(void *arg) {
-  position = abs(get_pcnt_count());
-  //LOG(LL_INFO, ("pos: %lld", position));
-
-
+  position = get_pcnt_count();
+  delta_pulses = position - last_position;
   end_position = position;
+  //LOG(LL_INFO, ("p: %lld, l:%lld, d:%d",position, last_position,delta_pulses));
+  //LOG(LL_INFO, ("l: %lld",last_position));
   save_position();
+  if (abs(delta_pulses) > delta) 
+  {    
+    LOG(LL_INFO, ("delta: "));
+    timer_counter = 0;
+    if (on_service == 0) {
+      LOG(LL_INFO, ("--- START SERVICE ---"));
+      // ------------------------- START
+      start_position = position - (position - last_position);
+      start_service_position = start_position;
+      current = 0;
+      on_service = 1;
+      start_time = time(NULL);
+    }
+  } 
+  else {
+    //LOG(LL_INFO, (" NO delta"));
+    timer_counter++;
 
-  // Hay movimiento en el encoder y es mayor al delta
-  if(abs(position - last_position) > delta)
-  {
-      // No se ha iniciado aún un servicio
-      if(on_service == 0)
-      {
-        // ------------------------- START
-        LOG(LL_INFO, ("Service Started by pulses"));
-        on_service = 1;
-        mgos_gpio_write(LED_PIN,1);
-        start_position = position - (position - last_position);
-        start_service_position = start_position;
-        current = 0;
-        start_time = time(NULL);
-      }
-      last_dif_delta_time = mgos_uptime();
-      
-  }
-  else
-   { 
-    
-    LOG(LL_INFO, ("no mov"));  
-    if(on_service)
-    {
-      timer_counter = mgos_uptime();
-      LOG(LL_INFO, ("Time over?"));  
-    // Tiempo actual - tiempo del ultimo movimiento = han pasado mas de tiempo
-      if ( (timer_counter - last_dif_delta_time) > (stop_time))
-      {
-        LOG(LL_INFO, ("Time over?"));  
-      
-        LOG(LL_INFO, ("Time over"));     
+    if (timer_counter > (stop_time * (1000/delta_time))) {
+      if (on_service) {
+        // ------------------------- END
+        LOG(LL_INFO, ("--- END SERVICE ---"));
+        on_service = 0;
+        timer_counter = 0;
+        start_position = end_position;
+        end_service_position = end_position;
+        close_valve();
         end_time = time(NULL);
-
         if(litros > 0)
         {
-          LOG(LL_INFO, ("Service STOP"));
+          save_position();
           save_to_file_in_folder(); // Save data to file when service ends
           save_report_file();
           last_json_str_msg = NULL;
           current = 0;
           folio++;
         }
-        if(valve_state)
-          close_valve();
-        start_position = end_position;
-        end_service_position = end_position;
-        on_service = 0;
-        delta_pulses = 0;
+        
       }
     }
-   }
+  }
 
-  
-  if (on_service > 0)
-  {
+  if (on_service) {
     current = abs(end_position - start_position);
     //if(current > 0)
     litros = current / pulsos_litro;
     precio = litros * precio_litro;
-  }
-  
-  else {
+  } else {
     current = 0;
     litros = 0;
     precio = 0;
