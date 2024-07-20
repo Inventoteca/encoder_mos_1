@@ -155,6 +155,12 @@ int64_t get_pcnt_count() {
 
 /// ---------------------------------------------- pcnt_init
 void encoder_pcnt_init() {
+
+  mgos_gpio_set_mode(ENCODER_PIN_A, MGOS_GPIO_MODE_INPUT);
+  mgos_gpio_set_mode(ENCODER_PIN_B, MGOS_GPIO_MODE_INPUT);
+
+  mgos_gpio_set_pull(ENCODER_PIN_A, MGOS_GPIO_PULL_UP);
+  mgos_gpio_set_pull(ENCODER_PIN_B, MGOS_GPIO_PULL_UP);
  
   // Configuración común para ambos canales del PCNT
   pcnt_config_t pcnt_config = {
@@ -667,7 +673,7 @@ static void save_position() {
 }
 
 // ------------------------------------------------------------- check_delta
-static void check_delta() {
+/*static void check_delta() {
   start_delta_time = mgos_uptime_micros();
   dif_delta_time = start_delta_time - end_delta_time;
 
@@ -693,10 +699,10 @@ static void check_delta() {
   
   end_delta_time = start_delta_time;
   
-}
+}*/
 
 // ------------------------------------------------------ updateEncoder
-static void updateEncoder() {
+/*static void updateEncoder() {
   int MSB = mgos_gpio_read(ENCODER_PIN_A); // MSB = most significant bit
   int LSB = mgos_gpio_read(ENCODER_PIN_B); // LSB = least significant bit
 
@@ -718,11 +724,11 @@ static void updateEncoder() {
   //mgos_gpio_write(LED_PIN,1);
   //LOG(LL_INFO, ("Encoder Position: %d", position));
   
-}
+}*/
 
 
 // ----------------------------------------------------------- encoder_init
-bool encoder_init() {
+/*bool encoder_init() {
   mgos_gpio_set_mode(ENCODER_PIN_A, MGOS_GPIO_MODE_INPUT);
   mgos_gpio_set_mode(ENCODER_PIN_B, MGOS_GPIO_MODE_INPUT);
 
@@ -736,7 +742,7 @@ bool encoder_init() {
   mgos_gpio_enable_int(ENCODER_PIN_B);
 
   return true;
-}
+}*/
 
 
 // ------------------------------------------------------------- load_pos
@@ -767,8 +773,8 @@ static void load_position() {
 
 // ------------------------------------------------------------- timer_delta
 static void timer_delta(void *arg) {
-  position = get_pcnt_count();
-  LOG(LL_INFO, ("pos: %lld", position));
+  position = abs(get_pcnt_count());
+  //LOG(LL_INFO, ("pos: %lld", position));
 
 
   end_position = position;
@@ -782,61 +788,51 @@ static void timer_delta(void *arg) {
       {
         // ------------------------- START
         LOG(LL_INFO, ("Service Started by pulses"));
-        on_service = 2;
+        on_service = 1;
         mgos_gpio_write(LED_PIN,1);
         start_position = position - (position - last_position);
         start_service_position = start_position;
         current = 0;
         start_time = time(NULL);
       }
+      last_dif_delta_time = mgos_uptime();
       
   }
-
-  if (on_service == 1) 
-  {
-    LOG(LL_INFO, ("Service Started by time"));
-    on_service = 2;
-
-  }
-  // ------------------------EN SERVICIO
-  else if(on_service == 2)
-  {
-   // Hay movimiento en el encoder y es mayor al delta
-   if(abs(position - last_position) > delta)
-   {
-      // Reinicia tiempo
-      last_dif_delta_time = mgos_uptime();
-   }
-   // no hay movimiento
-   else
+  else
    { 
-    timer_counter = mgos_uptime();
-
-    // Tiempo actual - tiempo del ultimo movimiento = han pasado mas de tiempo
-    if ( (timer_counter - last_dif_delta_time) > (stop_time))
+    
+    LOG(LL_INFO, ("no mov"));  
+    if(on_service)
     {
-      LOG(LL_INFO, ("Time over"));     
-      end_time = time(NULL);
-
-      if(litros > 0)
+      timer_counter = mgos_uptime();
+      LOG(LL_INFO, ("Time over?"));  
+    // Tiempo actual - tiempo del ultimo movimiento = han pasado mas de tiempo
+      if ( (timer_counter - last_dif_delta_time) > (stop_time))
       {
-        LOG(LL_INFO, ("Service STOP"));
-        save_to_file_in_folder(); // Save data to file when service ends
-        save_report_file();
-        last_json_str_msg = NULL;
-        current = 0;
-        folio++;
+        LOG(LL_INFO, ("Time over?"));  
+      
+        LOG(LL_INFO, ("Time over"));     
+        end_time = time(NULL);
+
+        if(litros > 0)
+        {
+          LOG(LL_INFO, ("Service STOP"));
+          save_to_file_in_folder(); // Save data to file when service ends
+          save_report_file();
+          last_json_str_msg = NULL;
+          current = 0;
+          folio++;
+        }
+        if(valve_state)
+          close_valve();
+        start_position = end_position;
+        end_service_position = end_position;
+        on_service = 0;
+        delta_pulses = 0;
       }
-      if(valve_state)
-        close_valve();
-      start_position = end_position;
-      end_service_position = end_position;
-      on_service = 0;
-      delta_pulses = 0;
     }
    }
-    
-  }
+
   
   if (on_service > 0)
   {
