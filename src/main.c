@@ -40,6 +40,7 @@ static char *json_str_msg = NULL;
 static char *last_json_str_msg = NULL;
 static char *last_json_str_msg2 = NULL;
 static int64_t position = 0;
+static int64_t last_saved_position = 0;
 static int64_t last_position = 0;
 static int64_t last_current_position = 0;
 static int64_t start_position = 0;
@@ -639,39 +640,27 @@ void save_to_file_in_folder() {
 }
 // -------------------------------------------------------- save position
 static void save_position() {
+  last_saved_position = 0;
+  if (abs(position - last_saved_position) < delta) {
+    return;
+  }
+
   char *json_str = json_asprintf("{position: %lld, on_service: %d, start_position: %lld, end_position: %lld, folio: %lld, reporte: %lld}", position, on_service, start_position, end_position, folio, reporte);
   if (json_str != NULL) {
-    // Leer el contenido actual del archivo
-    FILE *f = fopen(filename, "r");
-    char current_content[512]; // Asumiendo que el contenido no será mayor de 512 caracteres
-    size_t len = 0;
-
+    FILE *f = fopen(filename, "w");
     if (f != NULL) {
-      len = fread(current_content, 1, sizeof(current_content) - 1, f);
-      current_content[len] = '\0'; // Asegurarse de que la cadena esté terminada en null
+      fwrite(json_str, 1, strlen(json_str), f);
       fclose(f);
+      last_saved_position = position;
     } else {
-      current_content[0] = '\0'; // Si el archivo no existe, considerar que está vacío
+      LOG(LL_ERROR, ("Failed to open file for writing"));
     }
-
-    // Comparar el contenido actual con el nuevo contenido
-    if (strcmp(current_content, json_str) != 0) {
-      // Si el contenido es diferente, escribir el nuevo contenido en el archivo
-      f = fopen(filename, "w");
-      if (f != NULL) {
-        fwrite(json_str, 1, strlen(json_str), f);
-        fclose(f);
-        //LOG(LL_INFO, ("Saved to file: %s", json_str));
-      } else {
-        LOG(LL_ERROR, ("Failed to open file for writing"));
-      }
-    }
-
     free(json_str);
   } else {
     LOG(LL_ERROR, ("Failed to allocate memory for JSON string"));
   }
 }
+
 
 
 
@@ -706,30 +695,28 @@ static void timer_delta(void *arg) {
   position = get_pcnt_count();
   delta_pulses = position - last_position;
   end_position = position;
-  //LOG(LL_INFO, ("p: %lld, l:%lld, d:%d",position, last_position,delta_pulses));
-  //LOG(LL_INFO, ("l: %lld",last_position));
-  save_position();
-  if (abs(delta_pulses) > delta) 
-  {    
+
+  // Solo guarda la posición si ha cambiado significativamente
+  if (abs(position - last_saved_position) > delta) {
+    save_position();
+    last_saved_position = position;
+  }
+
+  if (abs(delta_pulses) > delta) {
     LOG(LL_INFO, ("delta: "));
     timer_counter = 0;
     if (on_service == 0) {
       LOG(LL_INFO, ("--- START SERVICE ---"));
-      // ------------------------- START
-      start_position = position - (position - last_position);
+      start_position = position;
       start_service_position = start_position;
       current = 0;
       on_service = 1;
       start_time = time(NULL);
     }
-  } 
-  else {
-    //LOG(LL_INFO, (" NO delta"));
+  } else {
     timer_counter++;
-
-    if (timer_counter > (stop_time * (1000/delta_time))) {
+    if (timer_counter > (stop_time * (1000 / delta_time))) {
       if (on_service) {
-        // ------------------------- END
         LOG(LL_INFO, ("--- END SERVICE ---"));
         on_service = 0;
         timer_counter = 0;
@@ -737,23 +724,20 @@ static void timer_delta(void *arg) {
         end_service_position = end_position;
         close_valve();
         end_time = time(NULL);
-        if(litros > 0)
-        {
+        if (litros > 0) {
           save_position();
-          save_to_file_in_folder(); // Save data to file when service ends
+          save_to_file_in_folder();
           save_report_file();
           last_json_str_msg = NULL;
           current = 0;
           folio++;
         }
-        
       }
     }
   }
 
   if (on_service) {
     current = abs(end_position - start_position);
-    //if(current > 0)
     litros = current / pulsos_litro;
     precio = litros * precio_litro;
   } else {
@@ -766,6 +750,7 @@ static void timer_delta(void *arg) {
   last_position = position;
   (void)arg;
 }
+
 
 
 
