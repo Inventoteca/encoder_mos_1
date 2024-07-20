@@ -676,7 +676,7 @@ void save_report_file() {
       remove_oldest_file("rep_");
     }
 
-    FILE *f = fopen(file_path, "w");
+    FILE *f = fopen(file_path, "a");
     if (f != NULL) {
       fwrite(json_str, 1, strlen(json_str), f);
       fclose(f);
@@ -760,6 +760,13 @@ static void timer_delta(void *arg) {
     timer_counter = 0;
     if (on_service == 0) {
       LOG(LL_INFO, ("--- START SERVICE ---"));
+       //mgos_sys_config_set_dash_enable(false);
+       //save_cfg(&mgos_sys_config, NULL);
+      if (mgos_mqtt_global_is_connected()) 
+      {
+        LOG(LL_INFO, ("MQTT is connected. Disabling MQTT..."));
+        mgos_mqtt_global_disconnect();
+      }  
       start_position = position;
       start_service_position = start_position;
       current = 0;
@@ -771,6 +778,13 @@ static void timer_delta(void *arg) {
     if (timer_counter > (stop_time * (1000 / delta_time))) {
       if (on_service) {
         LOG(LL_INFO, ("--- END SERVICE ---"));
+         //mgos_sys_config_set_dash_enable(true);
+         //save_cfg(&mgos_sys_config, NULL);
+        if (!mgos_mqtt_global_is_connected()) 
+        {
+          LOG(LL_INFO, ("MQTT is not connected. Enabling MQTT..."));
+          mgos_mqtt_global_connect();
+        } 
         on_service = 0;
         timer_counter = 0;
         start_position = end_position;

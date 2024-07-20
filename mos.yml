@@ -17,7 +17,7 @@ sources:
 # List of dirs. Files from these dirs will be copied to the device filesystem
 filesystem:
   - fs
-  #- src
+  - src
 
 # Custom configuration entries, settable via "device configuration"
 # Below is a custom firmware configuration example.
@@ -26,17 +26,17 @@ libs:
   #- origin: https://github.com/mongoose-os-libs/boards
   #- origin: https://github.com/mongoose-os-libs/js-demo-bundle
   - origin: https://github.com/mongoose-os-libs/core
-  #- origin: https://github.com/mongoose-os-libs/ca-bundle
+  - origin: https://github.com/mongoose-os-libs/ca-bundle
   - origin: https://github.com/mongoose-os-libs/rpc-service-config
   - origin: https://github.com/mongoose-os-libs/rpc-service-fs
-  - origin: https://github.com/mongoose-os-libs/rpc-service-i2c
+  #- origin: https://github.com/mongoose-os-libs/rpc-service-i2c
   #- origin: https://github.com/mongoose-os-libs/rpc-uart
   #- origin: https://github.com/mongoose-os-libs/mjs 
   - origin: https://github.com/mongoose-os-libs/wifi
   #- origin: https://github.com/mongoose-os-libs/sntp
   #- origin: https://github.com/mongoose-os-libs/ota-http-server
   - origin: https://github.com/mongoose-os-libs/rpc-service-ota
-  #- origin: https://github.com/mongoose-os-libs/dash
+  - origin: https://github.com/mongoose-os-libs/dash
   #- origin: https://github.com/mongoose-os-libs/shadow
   #- origin: https://github.com/mongoose-os-libs/file-logger
   - origin: https://github.com/mongoose-os-libs/i2c
@@ -57,70 +57,54 @@ config_schema:
  - ["app.pinB", "i", 27, {title: "Encoder B pin a sensor is attached to"}]
  - ["app.LED_PIN", "i", 2, {title: "LED"}] 
  - ["app.VALVE_PIN", "i", 19, {title: "VALVE"}] 
- - ["app.pulsos_litro", "f", 204.8, {title: "Pulsos por litro"}] 
- - ["app.precio_litro", "f", 9.8, {title: "Precio unitario litro"}]
+ - ["app.pulsos_litro", "f", 1, {title: "Pulsos por litro"}] 
+ - ["app.precio_litro", "f", 1, {title: "Precio unitario litro"}]
  - ["app.delta", "i", 3, {title: "Pulsos para iniciar proceso"}]
  - ["app.stop_time", "i", 10, {title: "Segundos de espera para fin de proceso"}]
  - ["app.delta_time", "i", 100, {title: "Milisegundos para checahr cambio"}]
  - ["app.MAX_FILES", "i", 30, {title: "Maximo numero de folios"}]
  - ["app.MAX_REPORTS", "i", 10, {title: "Maximo numero de reportes"}]
+ 
  - ["wifi.sta.ssid", "Inventoteca_2G"]
  - ["wifi.sta.pass", "science_7425"]
  - ["wifi.sta.enable", true]
- - ["sntp", "o", {title: "SNTP settings"}]
- - ["sntp.enable", "b", false, {title: "Enable SNTP"}]
- - ["sntp.server", "s", "time.google.com", {title: "Server address"}]
- - ["sntp.use_dhcp_ntp_server", "b", true, {title: "If DHCP lease contains NTP server, tries that first."}]
- - ["sntp.retry_min", "i", 1, {title: "Minimum retry interval"}]
- - ["sntp.retry_max", "i", 30, {title: "Maximum retry interval"}]
- - ["sntp.update_interval", "i", 7200, {title: "Update interval. If 0, performs a one-off sync"}]
+ - ["wifi.sta1.ssid", "4G-MIFI-C91"]
+ - ["wifi.sta1.pass", "1234567890"]
+ - ["wifi.sta1.enable", false]
+
+ #- ["sntp", "o", {title: "SNTP settings"}]
+ #- ["sntp.enable", "b", false, {title: "Enable SNTP"}]
+ #- ["sntp.server", "s", "time.google.com", {title: "Server address"}]
+ #- ["sntp.use_dhcp_ntp_server", "b", true, {title: "If DHCP lease contains NTP server, tries that first."}]
+ #- ["sntp.retry_min", "i", 1, {title: "Minimum retry interval"}]
+ #- ["sntp.retry_max", "i", 30, {title: "Maximum retry interval"}]
+ #- ["sntp.update_interval", "i", 7200, {title: "Update interval. If 0, performs a one-off sync"}]
  - ["sys.tz_spec", "CST7CDT,M4.1.0,M10.5.0"]
  #- ["file_logger.enable", "b", true, {title: "Enable file logger"}]
  #- ["file_logger.log_file_max_size", "i", 5000, {title: "Max log file size in bytes"}]
  #- ["file_logger.max_log_files", "i", 10, {title: "Max number of log files"}]
  #- ["file_logger.enable", true]
- - ["dash.enable", false]
+ - ["dash.enable", true]
  - ["dash.token", "LeaoeL0oKfKjFpPwxQUtOw"]
- - ["i2c.enable", "b", false, {title: "Enable I2C"}]
+ # I2C
+ - ["i2c.enable", "b", true, {title: "Enable I2C"}]
  - ["i2c.freq", "i", 100000, {title: "I2C Frequency (Hz)"}]
  - ["i2c.sda_gpio", "i", 21, {title: "I2C SDA GPIO Pin"}]
  - ["i2c.scl_gpio", "i", 22, {title: "I2C SCL GPIO Pin"}]
+ #MQTT
  - ["mqtt.enable", "b", true, {title: "Enable MQTT functionality"}]
  - ["mqtt.pass", "s", "equipo1pw", {title: "User password"}]
  - ["mqtt.user", "s", "equipo1", {title: "MQTT user name"}]
  - ["mqtt.server", "s", "iotver.ddns.net:1883", {title: "Server address"}]
+ 
  - ["rpc.mqtt.enable", true]
  - ["sys.mount.fs_size", "i", 2048, {title: "Filesystem size in KB"}]
- #- ["debug.level", 0]             # Nivel de depuración (ajusta según sea necesario)
- #- ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0
- #- ["debug.stderr_uart", -1]      # Deshabilitar la salida de error en UART0
- #- ["sys.esp32.uart_tx_gpio", -1] # Deshabilitar el pin TX del UART0
- #- ["sys.esp32.uart_rx_gpio", -1] # Deshabilitar el pin RX del UART0
-
-# config_schema:
-#  - ["my_app", "o", {title: "My app custom settings"}]
-#  - ["my_app.bool_value", "b", false, {title: "Some boolean value"}]
-#  - ["my_app.string_value", "s", "", {title: "Some string value"}]
-#  - ["my_app.int_value", "i", 123, {title: "Some integer value"}]
-
-# These settings get compiled into the C structure, and can be accessed
-# from the C code this way:
-#
-# printf("Hello from %s!\n", mgos_sys_config_get_device_id());
-#
-# Settings are cool: can be modified remotely without full firmware upgrade!
-#
-# To see all available compiled settings, buid the firmware and open
-# build/gen/mgos_config.h file.
-#
-# Also, in this config_schema section, you can override existing
-# settings that has been created by other libraries. For example, debug log
-# level is 2 by default. For this firmware we can override it to 3:
-#
-# config_schema:
-#  - ["debug.level", 3]
-
-# Used by the mos tool to catch mos binaries incompatible with this file format
+ #Deshabilita consola
+ - ["debug.level", 0]             # Nivel de depuración (ajusta según sea necesario)
+ - ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0
+ - ["debug.stderr_uart", -1]      # Deshabilitar la salida de error en UART0
+ - ["sys.esp32.uart_tx_gpio", -1] # Deshabilitar el pin TX del UART0
+ - ["sys.esp32.uart_rx_gpio", -1] # Deshabilitar el pin RX del UART0
 
 ffi_symbols:
   - pcnt_unit_config
