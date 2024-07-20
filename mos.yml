@@ -70,7 +70,7 @@ config_schema:
  - ["wifi.sta.enable", true]
  - ["wifi.sta1.ssid", "4G-MIFI-C91"]
  - ["wifi.sta1.pass", "1234567890"]
- - ["wifi.sta1.enable", false]
+ - ["wifi.sta1.enable", true]
 
  #- ["sntp", "o", {title: "SNTP settings"}]
  #- ["sntp.enable", "b", false, {title: "Enable SNTP"}]
