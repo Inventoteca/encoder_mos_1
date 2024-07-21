@@ -511,8 +511,8 @@ void make_report() {
 bool open_valve() {
   valve_state = 1;
   mgos_gpio_write(LED_PIN, 1);
-  mgos_gpio_write(VALVE_PIN, 1);
-  mgos_gpio_write(LED_PIN, 1);
+  mgos_gpio_setup_output(VALVE_PIN, 0);
+  mgos_gpio_write(VALVE_PIN, 0);
   json_str_msg = json_asprintf("{method: img, params: {name:\"%s\", pos_x:0, pos_y:208, size_x:32, size_y:32, back:0, front:1}}", "open_valve.raw");
   LOG(LL_INFO, ("OPEN VALVE"));
   mgos_uart_printf(UART_NO, "%s\n", json_str_msg);
@@ -529,8 +529,8 @@ bool open_valve() {
 bool close_valve() {
   valve_state = 0;
   mgos_gpio_write(LED_PIN, 0);
-  mgos_gpio_write(VALVE_PIN, 0);
-  mgos_gpio_write(LED_PIN, 0);
+  mgos_gpio_setup_output(VALVE_PIN, 1);
+  mgos_gpio_write(VALVE_PIN, 1);
   json_str_msg = json_asprintf("{method: img, params: {name:\"%s\", pos_x:0, pos_y:208, size_x:32, size_y:32, back:1, front:0}}", "valve.raw");
   LOG(LL_INFO, ("CLOSE VALVE"));
   mgos_uart_printf(UART_NO, "%s\n", json_str_msg);
@@ -1022,8 +1022,8 @@ enum mgos_app_init_result mgos_app_init(void) {
 
   mgos_gpio_setup_output(LED_PIN, 0);
   mgos_gpio_write(LED_PIN, 0);
-  mgos_gpio_setup_output(VALVE_PIN, 0);
-  mgos_gpio_write(VALVE_PIN, 0);
+  //mgos_gpio_setup_output(VALVE_PIN, 0);
+  //mgos_gpio_write(VALVE_PIN, 0);
 
   start_delta_time = mgos_uptime();
   end_delta_time = start_delta_time;
