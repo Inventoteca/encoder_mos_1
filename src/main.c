@@ -79,6 +79,7 @@ char folio_str[4];
 int ENCODER_PIN_A;
 int ENCODER_PIN_B;
 int LED_PIN;
+int PRINTER_PIN;
 int VALVE_PIN;
 int UART_NO = 0;
 int UART_NO1 = 2;
@@ -871,6 +872,10 @@ static void uart_dispatcher(int uart_no, void *arg) {
           make_report();
           // Implement your action for key '1' press
         }
+        if (strcmp(key, "A") == 0) {
+          make_report();
+          // Implement your action for key '1' press
+        }
       }
 
       // Remove the processed line from the buffer
@@ -1020,10 +1025,10 @@ enum mgos_app_init_result mgos_app_init(void) {
   topic_str = mgos_sys_config_get_app_id();
   MAX_FILES = mgos_sys_config_get_app_MAX_FILES();
   MAX_REPORTS = mgos_sys_config_get_app_MAX_REPORTS();
+  PRINTER_PIN = mgos_sys_config_get_app_PRINTER_PIN();
 
-  mgos_gpio_setup_output(LED_PIN, 0);
-  mgos_gpio_write(LED_PIN, 0);
-  
+  mgos_gpio_setup_output(PRINTER_PIN, 0);
+  mgos_gpio_write(PRINTER_PIN, 1);
   //mgos_gpio_setup_output(VALVE_PIN, 1);
  // mgos_gpio_write(VALVE_PIN, 1);
 
