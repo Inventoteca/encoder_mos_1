@@ -141,6 +141,36 @@ struct tm *t;
   }
 }*/
 
+// ------------------------------------------------------- on_printer
+void on_printer() {
+  mgos_gpio_setup_output(PRINTER_PIN, 0); // Output
+  mgos_gpio_write(PRINTER_PIN, 1); // HIGH
+  
+  LOG(LL_INFO, ("Printer ON"));
+  // Send icon to display
+  //json_str_msg = json_asprintf("{method: img, params: {name:\"%s\", pos_x:0, pos_y:208, size_x:32, size_y:32, back:0, front:1}}", "open_valve.raw");
+  //mgos_uart_printf(UART_NO, "%s\n", json_str_msg);
+  //free(json_str_msg);  // Liberar memoria aquí
+  //json_str_msg = NULL;
+}
+
+
+
+// ------------------------------------------------------- off_printer
+static void off_printer() {
+  
+  mgos_gpio_setup_output(PRINTER_PIN, 0); // Output
+  mgos_gpio_write(PRINTER_PIN, 0); // Low
+  
+  LOG(LL_INFO, ("Printer OFF"));
+  // Send icon to display
+  //json_str_msg = json_asprintf("{method: img, params: {name:\"%s\", pos_x:0, pos_y:208, size_x:32, size_y:32, back:0, front:1}}", "open_valve.raw");
+  //mgos_uart_printf(UART_NO, "%s\n", json_str_msg);
+  //free(json_str_msg);  // Liberar memoria aquí
+  //json_str_msg = NULL;
+  
+}
+
 // --------------------------------------------get_pcnt_count
 int64_t get_pcnt_count() {
   int64_t total_count = 0;
@@ -219,6 +249,8 @@ void encoder_pcnt_init() {
   pcnt_counter_resume(PCNT_UNIT);
 }
 
+
+
 // ------------------------------------------------------------- send_to_display
 void send_to_display() {
   json_str_msg = json_asprintf("{method: med, params: {Litros: \"%d\", Precio: \"%d\"}}", litros, precio);
@@ -269,8 +301,12 @@ void send_to_display() {
 
 
 //----------------------------------------------------- print_report
-void print_report_warning(char *json_str)
+//void print_report_warning(char *json_str)
+static void print_report_warning(void *arg)
 {
+  //on_printer();
+  //mgos_msleep(2000);
+  char *json_str = "No hay reporte nuevo";
   mgos_uart_write(UART_NO1, init_cmd, sizeof(init_cmd));
   mgos_uart_write(UART_NO1, center_cmd, sizeof(center_cmd));
   mgos_uart_write(UART_NO1, normal_size_cmd, sizeof(normal_size_cmd));
@@ -278,18 +314,28 @@ void print_report_warning(char *json_str)
   mgos_uart_write(UART_NO1, "\n", 1);
   mgos_uart_write(UART_NO1, end_print_cmd, sizeof(end_print_cmd));
   mgos_uart_write(UART_NO1, cut_paper_cmd, sizeof(cut_paper_cmd));
+  //off_printer();
+  mgos_set_timer(5000, 0 /* no repetir */, off_printer, NULL);
 }
 
 //----------------------------------------------------- print_report
-void print_report(char *json_str)
+static void print_report(void *arg)
 {
-  
+  char *report_str = (char *)arg;
+
+  if (report_str != NULL) {
+    LOG(LL_INFO, ("Imprimiendo reporte: %s", report_str));
+    // Aquí puedes añadir el código para imprimir el reporte, si es necesario
+  }
+
+  //on_printer();
+  //mgos_msleep(2000);
   mgos_uart_write(UART_NO1, init_cmd, sizeof(init_cmd));
   mgos_uart_write(UART_NO1, center_cmd, sizeof(center_cmd));
   
   // Imprimir fecha y folio desde el JSON
   struct json_token total_folios_tok, first_folio_tok, last_folio_tok,total_litros_tok,total_precio_tok,reporte_tok, actual_time_tok;
-  if (json_scanf(json_str, strlen(json_str), "{total_folios: %T, first_folio: %T, last_folio: %T, total_litros: %T, total_precio: %T, reporte: %T, actual_time: %T}", 
+  if (json_scanf(report_str, strlen(report_str), "{total_folios: %T, first_folio: %T, last_folio: %T, total_litros: %T, total_precio: %T, reporte: %T, actual_time: %T}", 
                 &total_folios_tok, &first_folio_tok, &last_folio_tok, &total_litros_tok, &total_precio_tok,&reporte_tok, &actual_time_tok) == 7) {
     char total_folios[32], first_folio[32], last_folio[32], total_litros[32], total_precio[32], reporte[32], actual_time[32];
     snprintf(total_folios, total_folios_tok.len + 1, "%.*s", total_folios_tok.len, total_folios_tok.ptr);
@@ -340,6 +386,10 @@ void print_report(char *json_str)
   
   mgos_uart_write(UART_NO1, end_print_cmd, sizeof(end_print_cmd));
   mgos_uart_write(UART_NO1, cut_paper_cmd, sizeof(cut_paper_cmd));
+
+  free(report_str);
+  mgos_set_timer(5000, 0 /* no repetir */, off_printer, NULL);
+  
 }
 
 //----------------------------------------------------- print_tiket
@@ -429,6 +479,7 @@ void create_folder(const char *folder_path) {
 //---------------------------------------------- make_report
 void make_report() {
   //create_folder(report_folder);
+  on_printer();
 
   char log_file_path[100], report_file_path[100];
   actual_time = time(NULL);
@@ -443,8 +494,9 @@ void make_report() {
 
   FILE *log_file = fopen(log_file_path, "r");
   if (log_file == NULL) {
-    LOG(LL_ERROR, ("Failed to open log file: %s", log_file_path));
-    print_report_warning("No hay reporte nuevo");
+    LOG(LL_ERROR, ("Failed to open log file/No new report: %s", log_file_path));
+    mgos_set_timer(5000, 0 /* no repetir */, print_report_warning, NULL);
+    //print_report_warning("No hay reporte nuevo");
     return;
   }
 
@@ -492,7 +544,8 @@ void make_report() {
       LOG(LL_INFO, ("Report saved to file: %s", report_file_path));
       if(total_litros > 0)
       {
-        print_report(report_str);
+        //print_report(report_str);
+        mgos_set_timer(5000, 0 /* no repetir */, print_report, report_str);
         reporte++;
         //mgos_mqtt_pub("my/topic", report_str, strlen(report_str), 1, 0); 
       char full_topic_str[128];
@@ -502,7 +555,7 @@ void make_report() {
     } else {
       LOG(LL_ERROR, ("Failed to open report file for writing: %s", report_file_path));
     }
-    free(report_str); // Liberar la memoria aquí
+    //free(report_str); // Liberar la memoria aquí
   } else {
     LOG(LL_ERROR, ("Failed to allocate memory for report string"));
   }
@@ -513,8 +566,8 @@ void make_report() {
 bool open_valve() {
   valve_state = 1;
   mgos_gpio_write(LED_PIN, 1);
-  mgos_gpio_setup_output(VALVE_PIN, 1); // Cambiado de 0 a 1
-  mgos_gpio_write(VALVE_PIN, 1); // Cambiado de 0 a 1
+  mgos_gpio_setup_output(VALVE_PIN, 0); // Salida
+  mgos_gpio_write(VALVE_PIN, 1); // Alta
   json_str_msg = json_asprintf("{method: img, params: {name:\"%s\", pos_x:0, pos_y:208, size_x:32, size_y:32, back:0, front:1}}", "open_valve.raw");
   LOG(LL_INFO, ("OPEN VALVE"));
   mgos_uart_printf(UART_NO, "%s\n", json_str_msg);
@@ -531,8 +584,8 @@ bool open_valve() {
 bool close_valve() {
   valve_state = 0;
   mgos_gpio_write(LED_PIN, 0);
-  mgos_gpio_setup_output(VALVE_PIN, 0); // Cambiado de 1 a 0
-  mgos_gpio_write(VALVE_PIN, 0); // Cambiado de 1 a 0
+  mgos_gpio_setup_output(VALVE_PIN, 0); // Salida
+  mgos_gpio_write(VALVE_PIN, 0); // Baja
   json_str_msg = json_asprintf("{method: img, params: {name:\"%s\", pos_x:0, pos_y:208, size_x:32, size_y:32, back:1, front:0}}", "valve.raw");
   LOG(LL_INFO, ("CLOSE VALVE"));
   mgos_uart_printf(UART_NO, "%s\n", json_str_msg);
@@ -872,10 +925,10 @@ static void uart_dispatcher(int uart_no, void *arg) {
           make_report();
           // Implement your action for key '1' press
         }
-        if (strcmp(key, "A") == 0) {
-          make_report();
+        //if (strcmp(key, "A") == 0) {
+          //make_report();
           // Implement your action for key '1' press
-        }
+        //}
       }
 
       // Remove the processed line from the buffer
@@ -1027,8 +1080,8 @@ enum mgos_app_init_result mgos_app_init(void) {
   MAX_REPORTS = mgos_sys_config_get_app_MAX_REPORTS();
   PRINTER_PIN = mgos_sys_config_get_app_PRINTER_PIN();
 
-  mgos_gpio_setup_output(PRINTER_PIN, 0);
-  mgos_gpio_write(PRINTER_PIN, 1);
+  //mgos_gpio_setup_output(PRINTER_PIN, 0);
+  //mgos_gpio_write(PRINTER_PIN, 1);
   //mgos_gpio_setup_output(VALVE_PIN, 1);
  // mgos_gpio_write(VALVE_PIN, 1);
 
