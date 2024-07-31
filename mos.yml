@@ -109,12 +109,12 @@ config_schema:
  - ["rpc.mqtt.enable", true]
  - ["rpc.uart.enable", true]
  - ["sys.mount.fs_size", "i", 2048, {title: "Filesystem size in KB"}]
- #Deshabilita consola
- #- ["debug.level", 0]             # Nivel de depuración (ajusta según sea necesario)
- #- ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0
- #- ["debug.stderr_uart", -1]      # Deshabilitar la salida de error en UART0
- #- ["sys.esp32.uart_tx_gpio", -1] # Deshabilitar el pin TX del UART0
- #- ["sys.esp32.uart_rx_gpio", -1] # Deshabilitar el pin RX del UART0
+ # Descomentar para deshabilita consola/ comentar para habilitar
+ - ["debug.level", 0]             # Nivel de depuración (ajusta según sea necesario)
+ - ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0
+ - ["debug.stderr_uart", -1]      # Deshabilitar la salida de error en UART0
+ - ["sys.esp32.uart_tx_gpio", -1] # Deshabilitar el pin TX del UART0
+ - ["sys.esp32.uart_rx_gpio", -1] # Deshabilitar el pin RX del UART0
 
 ffi_symbols:
   - pcnt_unit_config
