@@ -105,7 +105,9 @@ config_schema:
  - ["mqtt1.enable", "b", true, {title: "Enable MQTT functionality"}]
  - ["mqtt1.server", "s", "broker.emqx.io:1883", {title: "Server address"}]
  
+ - ["rpc.enable", true]
  - ["rpc.mqtt.enable", true]
+ - ["rpc.uart.enable", true]
  - ["sys.mount.fs_size", "i", 2048, {title: "Filesystem size in KB"}]
  #Deshabilita consola
  #- ["debug.level", 0]             # Nivel de depuración (ajusta según sea necesario)

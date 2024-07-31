@@ -925,10 +925,9 @@ static void uart_dispatcher(int uart_no, void *arg) {
           make_report();
           // Implement your action for key '1' press
         }
-        //if (strcmp(key, "A") == 0) {
-          //make_report();
-          // Implement your action for key '1' press
-        //}
+        if (strcmp(key, "Z") == 0) {
+          mgos_system_restart();
+        }
       }
 
       // Remove the processed line from the buffer
