@@ -30,7 +30,8 @@ libs:
   - origin: https://github.com/mongoose-os-libs/rpc-service-config
   - origin: https://github.com/mongoose-os-libs/rpc-service-fs
   - origin: https://github.com/mongoose-os-libs/rpc-service-i2c
-  #- origin: https://github.com/mongoose-os-libs/rpc-uart
+  - origin: https://github.com/mongoose-os-libs/rpc-uart
+  - origin: https://github.com/mongoose-os-libs/rpc-service-gpio
   #- origin: https://github.com/mongoose-os-libs/mjs 
   - origin: https://github.com/mongoose-os-libs/wifi
   - origin: https://github.com/mongoose-os-libs/sntp
@@ -38,7 +39,7 @@ libs:
   - origin: https://github.com/mongoose-os-libs/rpc-service-ota
   - origin: https://github.com/mongoose-os-libs/dash
   #- origin: https://github.com/mongoose-os-libs/shadow
-  #- origin: https://github.com/mongoose-os-libs/file-logger
+  - origin: https://github.com/mongoose-os-libs/file-logger
   - origin: https://github.com/mongoose-os-libs/i2c
   - origin: https://github.com/mongoose-os-libs/ds3231
   - origin: https://github.com/mongoose-os-libs/mqtt
@@ -72,6 +73,9 @@ config_schema:
  - ["wifi.sta1.ssid", "4G-MIFI-C91"]
  - ["wifi.sta1.pass", "1234567890"]
  - ["wifi.sta1.enable", true]
+ - ["wifi.sta2.ssid", "INFINITUM3CF6_2.4"]
+ - ["wifi.sta2.pass", "tmRmcr6aT0"]
+ - ["wifi.sta2.enable", true]
 
  - ["sntp", "o", {title: "SNTP settings"}]
  - ["sntp.enable", "b", false, {title: "Enable SNTP"}]
@@ -81,10 +85,10 @@ config_schema:
  - ["sntp.retry_max", "i", 30, {title: "Maximum retry interval"}]
  - ["sntp.update_interval", "i", 7200, {title: "Update interval. If 0, performs a one-off sync"}]
  - ["sys.tz_spec", "CST7CDT,M4.1.0,M10.5.0"]
- #- ["file_logger.enable", "b", true, {title: "Enable file logger"}]
- #- ["file_logger.log_file_max_size", "i", 5000, {title: "Max log file size in bytes"}]
- #- ["file_logger.max_log_files", "i", 10, {title: "Max number of log files"}]
- #- ["file_logger.enable", true]
+ - ["file_logger.enable", "b", true, {title: "Enable file logger"}]
+ - ["file_logger.log_file_max_size", "i", 5000, {title: "Max log file size in bytes"}]
+ - ["file_logger.max_log_files", "i", 10, {title: "Max number of log files"}]
+ - ["file_logger.enable", true]
  - ["dash.enable", true]
  - ["dash.token", "fvpzJBwQ7hXfoD8zf4CvHg"]
  # I2C
@@ -97,15 +101,20 @@ config_schema:
  - ["mqtt.pass", "s", "equipo1pw", {title: "User password"}]
  - ["mqtt.user", "s", "equipo1", {title: "MQTT user name"}]
  - ["mqtt.server", "s", "iotver.ddns.net:1883", {title: "Server address"}]
+
+ - ["mqtt1.enable", "b", true, {title: "Enable MQTT functionality"}]
+ - ["mqtt1.server", "s", "broker.emqx.io:1883", {title: "Server address"}]
  
+ - ["rpc.enable", true]
  - ["rpc.mqtt.enable", true]
+ - ["rpc.uart.enable", true]
  - ["sys.mount.fs_size", "i", 2048, {title: "Filesystem size in KB"}]
- #Deshabilita consola
- - ["debug.level", 0]             # Nivel de depuración (ajusta según sea necesario)
- - ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0
- - ["debug.stderr_uart", -1]      # Deshabilitar la salida de error en UART0
- - ["sys.esp32.uart_tx_gpio", -1] # Deshabilitar el pin TX del UART0
- - ["sys.esp32.uart_rx_gpio", -1] # Deshabilitar el pin RX del UART0
+ # Descomentar para deshabilita consola/ comentar para habilitar
+ #- ["debug.level", 0]             # Nivel de depuración (ajusta según sea necesario)
+ #- ["debug.stdout_uart", -1]      # Deshabilitar la salida estándar en UART0
+ #- ["debug.stderr_uart", -1]      # Deshabilitar la salida de error en UART0
+ #- ["sys.esp32.uart_tx_gpio", -1] # Deshabilitar el pin TX del UART0
+ #- ["sys.esp32.uart_rx_gpio", -1] # Deshabilitar el pin RX del UART0
 
 ffi_symbols:
   - pcnt_unit_config
