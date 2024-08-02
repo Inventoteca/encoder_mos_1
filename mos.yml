@@ -50,7 +50,7 @@ build_vars:
 
 config_schema:
  - ["app", "o", {title: "My app custom settings"}]
- - ["app.id", "s", "1", {title: "ID el vehiculo/instalacion"}]
+ - ["app.id", "s", "Licencia", {title: "ID el vehiculo/instalacion"}]
  - ["app.tiket.header", "s", "VERACRUZANA DE GAS S.A. DE C.V.", {title: "Encabezado Tiket"}]
  - ["app.tiket.footer", "s", "GRACIAS POR SU COMPRA", {title: "Despedida Tiket"}]
  - ["app.pinA", "i", 26, {title: "Encoder A pin a sensor is attached to"}]
@@ -86,7 +86,7 @@ config_schema:
  #- ["file_logger.max_log_files", "i", 10, {title: "Max number of log files"}]
  #- ["file_logger.enable", true]
  - ["dash.enable", true]
- - ["dash.token", "iXDQfu5vtgXd5fYEO0RPqQ"]
+ - ["dash.token", "fvpzJBwQ7hXfoD8zf4CvHg"]
  # I2C
  - ["i2c.enable", "b", true, {title: "Enable I2C"}]
  - ["i2c.freq", "i", 100000, {title: "I2C Frequency (Hz)"}]
