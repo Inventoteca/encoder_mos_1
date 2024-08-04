@@ -36,6 +36,7 @@
 #include <dirent.h>
 #include <limits.h>
 //#include <sys/statvfs.h>
+#include "mgos_sd.h"
 
 
 static const char *topic_str = NULL;
@@ -70,7 +71,7 @@ static int timer_counter;
 static time_t start_time, end_time, actual_time;
 static int litros = 0;
 static int precio = 0;
-static float pulsos_litro = 1;
+static float pulsos_litro = 188.06;
 static float precio_litro =  9.8;
 char time_str[9];
 char date_str[12];
@@ -99,7 +100,7 @@ static portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
 #define _ENTER_CRITICAL() portENTER_CRITICAL_SAFE(&spinlock)
 #define _EXIT_CRITICAL() portEXIT_CRITICAL_SAFE(&spinlock)
 
-// Define el número máximo de archivos que se pueden guardar
+struct mgos_sd *s_sd = NULL;
 
 
 
@@ -142,6 +143,54 @@ struct tm *t;
   }
 }*/
 
+
+// ------------------------------------------------------- sd_init
+static void sd_init()
+{
+  s_sd = mgos_sd_open(false /* spi */, "/sd", false);
+  if (NULL != s_sd) {
+    LOG(LL_INFO, ("SD init successfuly!"));
+    struct mbuf jsmb;
+    struct json_out jsout = JSON_OUT_MBUF(&jsmb);
+    mbuf_init(&jsmb, 0);
+    mgos_sd_print_info(&jsout);
+    LOG(LL_INFO, ("%.*s", jsmb.len, jsmb.buf));
+    mbuf_free(&jsmb);
+    LOG(LL_INFO, ("SD size=%llu B", mgos_sd_get_fs_size(SD_FS_UNIT_BYTES)));
+    LOG(LL_INFO,
+        ("SD size=%llu kiB", mgos_sd_get_fs_size(SD_FS_UNIT_KILOBYTES)));
+    LOG(LL_INFO,
+        ("SD size=%llu MiB", mgos_sd_get_fs_size(SD_FS_UNIT_MEGABYTES)));
+    // Test write/read file
+    //char fname[100];
+    //snprintf(fname, sizeof(fname), "/sd/fol_%lld.json", folio);
+
+    const char *fname = "/sd/test.txt";
+    LOG(LL_INFO, ("Write file"));
+    FILE *f = fopen(fname, "w");
+    const char *txt = "This is a test\n";
+    size_t txt_len = strlen(txt);
+    if (f != NULL) {
+      size_t written = fwrite(txt, 1, txt_len, f);
+      fclose(f);
+      LOG(LL_INFO, ("written: %d, txt_len: %d", (int) written, (int) txt_len));
+    } else {
+      LOG(LL_ERROR, ("Failed to open %s for writing!", fname));
+    }
+    LOG(LL_INFO, ("Read file"));
+    f = fopen(fname, "r");
+    if (f != NULL) {
+      char buf[64];
+      size_t read = fread(buf, 1, txt_len, f);
+      fclose(f);
+      LOG(LL_INFO, ("read: %d, txt_len: %d", (int) read, (int) txt_len));
+    } else {
+      LOG(LL_ERROR, ("Failed to open %s for reading!", fname));
+    }
+  } else {
+    LOG(LL_INFO, ("SD init ERROR!"));
+  }
+}
 
 
 // ------------------------------------------------------- on_printer
@@ -481,6 +530,38 @@ void create_folder(const char *folder_path) {
   }
 }
 
+// Crear carpeta si no existe ----------------------create_nested_folder
+void create_nested_folder(const char *folder_path) {
+  char tmp[256];
+  char *p = NULL;
+  size_t len;
+
+  snprintf(tmp, sizeof(tmp), "%s", folder_path);
+  len = strlen(tmp);
+
+  if(tmp[len - 1] == '/') {
+    tmp[len - 1] = 0;
+  }
+
+  for(p = tmp + 1; *p; p++) {
+    if(*p == '/') {
+      *p = 0;
+      if (mkdir(tmp, 0700) != 0) {
+        if(errno != EEXIST) {
+          LOG(LL_ERROR, ("Failed to create directory: %s", tmp));
+        }
+      }
+      *p = '/';
+    }
+  }
+
+  if (mkdir(tmp, 0700) != 0) {
+    if(errno != EEXIST) {
+      LOG(LL_ERROR, ("Failed to create directory: %s", tmp));
+    }
+  }
+}
+
 
 //---------------------------------------------- make_report
 void make_report() {
@@ -751,7 +832,7 @@ void make_report_full() {
 // ------------------------------------------------------- open_valve
 bool open_valve() {
   valve_state = 1;
-  mgos_gpio_write(LED_PIN, 1);
+  //mgos_gpio_write(LED_PIN, 1);
   mgos_gpio_setup_output(VALVE_PIN, 0); // Salida
   mgos_gpio_write(VALVE_PIN, 1); // Alta
   json_str_msg = json_asprintf("{method: img, params: {name:\"%s\", pos_x:0, pos_y:208, size_x:32, size_y:32, back:0, front:1}}", "open_valve");
@@ -769,7 +850,7 @@ bool open_valve() {
 // ------------------------------------------------------- close_valve
 bool close_valve() {
   valve_state = 0;
-  mgos_gpio_write(LED_PIN, 0);
+  //mgos_gpio_write(LED_PIN, 0);
   mgos_gpio_setup_output(VALVE_PIN, 0); // Salida
   mgos_gpio_write(VALVE_PIN, 0); // Baja
   json_str_msg = json_asprintf("{method: img, params: {name:\"%s\", pos_x:0, pos_y:208, size_x:32, size_y:32, back:1, front:0}}", "valve");
@@ -836,11 +917,14 @@ int count_files(const char *prefix) {
 
 // ------------------------------------------------------- save_to_file_in_folder
 void save_to_file_in_folder() {
-  //create_folder(log_folder);
+  //create_folder("/sd/2024");
+  //create_folder("/sd/2024/08");
+  create_nested_folder("/sd/2024/08/04");
   on_printer();
 
+ 
   char file_path[100];
-  snprintf(file_path, sizeof(file_path), "fol_%lld.json", folio);
+  snprintf(file_path, sizeof(file_path), "/sd/2024/08/04/fol_%lld.txt", folio);
 
   char start_time_str[20], end_time_str[20];
   strftime(start_time_str, sizeof(start_time_str), "%Y-%m-%d %H:%M:%S", localtime(&start_time));
@@ -864,14 +948,21 @@ void save_to_file_in_folder() {
 
   LOG(LL_INFO, ("Servicio: %s", json_str));
 
-  if (json_str != NULL) {
+  if (json_str != NULL) 
+  {
     int file_count = count_files("fol_");
-    if (file_count >= MAX_FILES) {
+    if (file_count >= MAX_FILES)
+    {
       remove_oldest_file("fol_");
     }
 
+  //s_sd = mgos_sd_open(false /* spi */, "/sd", false);
+  //if (mgos_sd_open(false, "/sd", true)) 
+  //{
+
     FILE *f = fopen(file_path, "w");
-    if (f != NULL) {
+    if (f != NULL) 
+    {
       fwrite(json_str, 1, strlen(json_str), f);
       fclose(f);
       LOG(LL_INFO, ("Saved to file: %s", file_path));
@@ -880,12 +971,22 @@ void save_to_file_in_folder() {
       char full_topic_str[128];
       snprintf(full_topic_str, sizeof(full_topic_str), "%s/out", topic_str);
       mgos_mqtt_pub(full_topic_str, json_str, strlen(json_str), 1, 0);  /* Publish */
-    } else {
+    } 
+    else 
+    {
       LOG(LL_ERROR, ("Failed to open file for writing: %s", file_path));
     }
     //free(json_str);
-  } else {
-    LOG(LL_ERROR, ("Failed to allocate memory for JSON string"));
+  //}
+  //else 
+  //{
+      //LOG(LL_INFO, ("Failed to mount SD card")); 
+  //}
+    
+  }
+  else 
+  {
+      LOG(LL_ERROR, ("Failed to allocate memory for JSON string"));
   }
 }
 
@@ -972,7 +1073,7 @@ static void load_position() {
 
     if (on_service) {
       last_position = end_position;
-      mgos_gpio_write(LED_PIN, 1);
+      //mgos_gpio_write(LED_PIN, 1);
     } else {
       last_position = position;
     }
@@ -1278,13 +1379,15 @@ enum mgos_app_init_result mgos_app_init(void) {
   MAX_REPORTS = mgos_sys_config_get_app_MAX_REPORTS();
   PRINTER_PIN = mgos_sys_config_get_app_PRINTER_PIN();
 
-  //mgos_gpio_setup_output(PRINTER_PIN, 0);
-  //mgos_gpio_write(PRINTER_PIN, 1);
-  //mgos_gpio_setup_output(VALVE_PIN, 1);
- // mgos_gpio_write(VALVE_PIN, 1);
+  mgos_gpio_setup_output(LED_PIN, 0);
+  mgos_gpio_write(LED_PIN, 1);
+  mgos_gpio_setup_output(5, 0);
+  mgos_gpio_write(5, 0);
 
   start_delta_time = mgos_uptime();
   end_delta_time = start_delta_time;
+
+  sd_init();
 
   //encoder_init();
   encoder_pcnt_init();
