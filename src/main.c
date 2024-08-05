@@ -565,16 +565,27 @@ void create_nested_folder(const char *folder_path) {
 
 //---------------------------------------------- make_report
 void make_report() {
-  //create_folder(report_folder);
+
   on_printer();
 
-  char log_file_path[100], report_file_path[100];
+  char log_file_path[250], report_file_path[250];
   actual_time = time(NULL);
   struct tm *t = localtime(&actual_time);
-  //snprintf(log_file_path, sizeof(log_file_path), "fol_%04d_%02d_%02d.json", t->tm_year + 1900, t->tm_mon + 1, t->tm_mday);
-  snprintf(log_file_path, sizeof(log_file_path), "rep_%lld.json", reporte);
+
+  char date_path[100];
+  strftime(date_path, sizeof(date_path), "/sd/%Y/%m/%d", t);
+
+  // Crear las carpetas anidadas basadas en la fecha
+  create_nested_folder(date_path);
+  
+  //snprintf(log_file_path, sizeof(log_file_path), "rep_%lld.json", reporte);
   //snprintf(report_file_path, sizeof(report_file_path), "rep_%lld_%04d_%02d_%02d.json", reporte, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday);
-  snprintf(report_file_path, sizeof(report_file_path), "rep_%lld.json", reporte);
+  //snprintf(report_file_path, sizeof(report_file_path), "rep_%lld.json", reporte);
+  //strftime(log_file_path, sizeof(log_file_path), "%s/rep_%Y_%m_%d.txt", t);
+  //strftime(report_file_path, sizeof(report_file_path), "%s/rep_%Y_%m_%d.txt", t);
+  snprintf(log_file_path, sizeof(log_file_path), "%s/rep_%lld.txt", date_path, reporte);
+  snprintf(report_file_path, sizeof(report_file_path), "%s/rep_%lld.txt", date_path, reporte);
+
 
   char actual_time_str[20];
   strftime(actual_time_str, sizeof(actual_time_str), "%Y-%m-%d %H:%M:%S", localtime(&actual_time));
@@ -917,19 +928,26 @@ int count_files(const char *prefix) {
 
 // ------------------------------------------------------- save_to_file_in_folder
 void save_to_file_in_folder() {
-  //create_folder("/sd/2024");
-  //create_folder("/sd/2024/08");
-  create_nested_folder("/sd/2024/08/04");
+  // Obtener la fecha actual
+  time_t now = time(NULL);
+  struct tm *t = localtime(&now);
+  char date_path[100];
+  strftime(date_path, sizeof(date_path), "/sd/%Y/%m/%d", t);
+
+  // Crear las carpetas anidadas basadas en la fecha
+  create_nested_folder(date_path);
   on_printer();
 
- 
-  char file_path[100];
-  snprintf(file_path, sizeof(file_path), "/sd/2024/08/04/fol_%lld.txt", folio);
+  // Formatear la ruta del archivo
+  char file_path[150];
+  snprintf(file_path, sizeof(file_path), "%s/fol_%lld.txt", date_path, folio);
 
+  // Obtener las cadenas de tiempo de inicio y fin
   char start_time_str[20], end_time_str[20];
   strftime(start_time_str, sizeof(start_time_str), "%Y-%m-%d %H:%M:%S", localtime(&start_time));
   strftime(end_time_str, sizeof(end_time_str), "%Y-%m-%d %H:%M:%S", localtime(&end_time));
 
+  // Crear el JSON
   char *json_str = json_asprintf(
     "{"
     "folio: %lld,"
@@ -948,21 +966,15 @@ void save_to_file_in_folder() {
 
   LOG(LL_INFO, ("Servicio: %s", json_str));
 
-  if (json_str != NULL) 
-  {
-    int file_count = count_files("fol_");
-    if (file_count >= MAX_FILES)
-    {
-      remove_oldest_file("fol_");
-    }
+  if (json_str != NULL) {
+    //int file_count = count_files("fol_");
+    //if (file_count >= MAX_FILES) {
+      //remove_oldest_file("fol_");
+    //}
 
-  //s_sd = mgos_sd_open(false /* spi */, "/sd", false);
-  //if (mgos_sd_open(false, "/sd", true)) 
-  //{
-
+    // Guardar el archivo
     FILE *f = fopen(file_path, "w");
-    if (f != NULL) 
-    {
+    if (f != NULL) {
       fwrite(json_str, 1, strlen(json_str), f);
       fclose(f);
       LOG(LL_INFO, ("Saved to file: %s", file_path));
@@ -971,36 +983,36 @@ void save_to_file_in_folder() {
       char full_topic_str[128];
       snprintf(full_topic_str, sizeof(full_topic_str), "%s/out", topic_str);
       mgos_mqtt_pub(full_topic_str, json_str, strlen(json_str), 1, 0);  /* Publish */
-    } 
-    else 
-    {
+    } else {
       LOG(LL_ERROR, ("Failed to open file for writing: %s", file_path));
     }
-    //free(json_str);
-  //}
-  //else 
-  //{
-      //LOG(LL_INFO, ("Failed to mount SD card")); 
-  //}
-    
-  }
-  else 
-  {
-      LOG(LL_ERROR, ("Failed to allocate memory for JSON string"));
+  } else {
+    LOG(LL_ERROR, ("Failed to allocate memory for JSON string"));
   }
 }
 
 // ------------------------------------------------------- save_report_file
 void save_report_file() {
-  //create_folder(log_folder);
+  // Obtener la fecha actual
+  time_t now = time(NULL);
+  struct tm *t = localtime(&now);
+  char date_path[100];
+  strftime(date_path, sizeof(date_path), "/sd/%Y/%m/%d", t);
 
-  char file_path[100];
-  snprintf(file_path, sizeof(file_path), "rep_%lld.json", reporte);
+  // Crear las carpetas anidadas basadas en la fecha
+  create_nested_folder(date_path);
 
+  // Formatear la ruta del archivo
+  char file_path[150];
+  //strftime(file_path, sizeof(file_path), "/sd/%Y/%m/%d/rep_%lld.txt", t,reporte);
+   snprintf(file_path, sizeof(file_path), "%s/rep_%lld.txt", date_path, reporte);
+
+  // Obtener las cadenas de tiempo de inicio y fin
   char start_time_str[20], end_time_str[20];
   strftime(start_time_str, sizeof(start_time_str), "%Y-%m-%d %H:%M:%S", localtime(&start_time));
   strftime(end_time_str, sizeof(end_time_str), "%Y-%m-%d %H:%M:%S", localtime(&end_time));
 
+  // Crear el JSON
   char *json_str = json_asprintf(
     "{"
     "folio: %lld,"
@@ -1012,14 +1024,15 @@ void save_report_file() {
     folio, pulsos_litro, litros, precio_litro, precio
   );
 
-  LOG(LL_INFO, ("Servicio: %s", json_str));
+  LOG(LL_INFO, ("Reporte: %s", json_str));
 
   if (json_str != NULL) {
-    int file_count = count_files("rep_");
-    if (file_count >= MAX_REPORTS) {
-      remove_oldest_file("rep_");
-    }
+    //int file_count = count_files("rep_");
+    //if (file_count >= MAX_REPORTS) {
+      //remove_oldest_file("rep_");
+    //}
 
+    // Guardar el archivo
     FILE *f = fopen(file_path, "a");
     if (f != NULL) {
       fwrite(json_str, 1, strlen(json_str), f);
@@ -1139,6 +1152,7 @@ static void timer_delta(void *arg) {
           save_position();
           save_to_file_in_folder();
           save_report_file();
+          //make_report(); solo para test
           last_json_str_msg = NULL;
           current = 0;
           folio++;
